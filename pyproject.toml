@@ -12,6 +12,7 @@ dependencies = [
     "uvicorn",
     "pydantic>=2",
     "pyyaml",
+    "shapely>=2.0",
 ]
 
 [project.optional-dependencies]
@@ -39,6 +40,9 @@ packages = [
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
+markers = [
+    "acceptance: FL-TST acceptance suite (ICD §16)",
+]
 
 [tool.ruff]
 line-length = 100
