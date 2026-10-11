@@ -136,6 +136,7 @@ detects schema drift, and writes a registry-ready fixture record.
 | [`docs/SOW.md`](docs/SOW.md) | Scope, deliverables, phases, acceptance, exclusions |
 | [`docs/SRS.md`](docs/SRS.md) | Normative system requirements + verification plan |
 | [`docs/ICD-FL-001.md`](docs/ICD-FL-001.md) | Volusia connector contracts, rights, tests, freeze criteria |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Docs-as-code pipeline, PR checklist, work-ahead task board |
 
 ## Launch status
 
