@@ -95,17 +95,18 @@ pip install -e ".[dev]"
 pytest -q                         # unit + contract + acceptance (fixture-backed)
 pytest -q -m acceptance           # FL-TST subset only
 ruff check src tests scripts
-python scripts/dev_seed.py        # API + portal on :8010 with two seeded jobs (toy data)
-#   → http://localhost:8010/portal?account=acct-1
+scripts/start_portal.bat          # one command: free port + browser launch (toy data)
+scripts/start_portal.sh           # bash equivalent; --port <n> / --no-open optional
 uvicorn api.main:app --reload     # bare API; in-memory stores unless DATABASE_URL is set
 ```
 
 ### Portal experience and sample coverage (M16)
 
-`python scripts/dev_seed.py` explicitly enables sample-data mode. If another instance
-is running, use `python scripts/dev_seed.py --port 8011` and open
-`http://localhost:8011/portal?account=acct-1`; this leaves the original in-memory session
-untouched. Restarting a demo process discards its in-memory requests.
+`scripts/start_portal` wraps `scripts/dev_seed.py`, which explicitly enables
+sample-data mode: it auto-picks a free port in 8010-8029 and opens
+`http://localhost:<port>/portal?account=acct-1` once the app is healthy. Use
+`--port <n>` to pin a port or `--no-open` to skip the browser launch. Restarting
+a demo process discards its in-memory requests.
 
 The workspace labels sample coverage before intake. Try `123 Main St` for screening or
 `500 Ocean Blvd` for parcel/unit selection. Other real-world addresses, including
