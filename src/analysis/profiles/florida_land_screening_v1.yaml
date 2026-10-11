@@ -1,0 +1,12 @@
+profile: florida_land_screening_v1
+version: "1.0.0"
+areas:
+  flood:         {dataset: nfhl_flood,     analyzer: flood,        mandatory: true,  spatial_rel: intersects}
+  wetlands:      {dataset: nwi_wetlands,   analyzer: wetlands,     mandatory: true,  spatial_rel: intersects}
+  hydric_soils:  {dataset: ssurgo_soils,   analyzer: hydric_soils, mandatory: true,  spatial_rel: intersects}
+  subsidence:    {dataset: sinkhole_reports, analyzer: proximity,  mandatory: false, buffer_m: 1609, label: "subsidence incident report"}
+  permits:       {dataset: permits,        analyzer: attribute_list, mandatory: false, label: "permit record"}
+  contamination: {dataset: fdep_contam,    analyzer: proximity,    mandatory: true,  buffer_m: 402,  label: "FDEP site"}
+  land_use:      {dataset: county_flu,     analyzer: land_use,     mandatory: true,  spatial_rel: intersects, jurisdiction_dependent: true}
+  access:        {dataset: fdot_roads,     analyzer: proximity,    mandatory: false, buffer_m: 50,   label: "road segment"}
+  utilities:     {dataset: utility_service, analyzer: proximity,   mandatory: false, buffer_m: 500,  label: "utility service area"}
