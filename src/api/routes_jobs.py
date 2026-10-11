@@ -1,0 +1,102 @@
+"""Job + portfolio endpoints. Account id arrives as X-Account-Id header
+(real auth is a later milestone; REQ-SEC-03 isolation is enforced by the
+store regardless)."""
+
+import csv
+import io
+from typing import Annotated
+
+from fastapi import APIRouter, Header, HTTPException, UploadFile
+
+from api.schemas import CandidateSelect, JobCreate, ReviewDecision, job_out
+from workers.jobs import IllegalTransition, JobStore
+from workers.pipeline import JobRunner
+
+
+def build_router(runner: JobRunner, store: JobStore) -> APIRouter:
+    router = APIRouter()
+
+    def _account(x_account_id: Annotated[str | None, Header()]) -> str:
+        if not x_account_id:
+            raise HTTPException(400, "X-Account-Id header required")
+        return x_account_id
+
+    @router.post("/jobs", status_code=201)
+    def create_job(
+        body: JobCreate,
+        x_account_id: Annotated[str | None, Header()] = None,
+    ):
+        account = _account(x_account_id)
+        try:
+            return job_out(runner.submit(account, body.to_intake()))
+        except ValueError as exc:
+            raise HTTPException(409, str(exc)) from exc
+
+    @router.get("/jobs")
+    def list_jobs(x_account_id: Annotated[str | None, Header()] = None):
+        account = _account(x_account_id)
+        return [job_out(j) for j in store.list(account)]
+
+    @router.get("/jobs/{job_id}")
+    def get_job(
+        job_id: str,
+        x_account_id: Annotated[str | None, Header()] = None,
+    ):
+        account = _account(x_account_id)
+        try:
+            return job_out(store.get(job_id, account))
+        except KeyError:
+            raise HTTPException(404, "job not found") from None
+
+    @router.post("/jobs/{job_id}/select-candidate")
+    def select_candidate(
+        job_id: str,
+        body: CandidateSelect,
+        x_account_id: Annotated[str | None, Header()] = None,
+    ):
+        account = _account(x_account_id)
+        try:
+            return job_out(
+                runner.select_candidate(job_id, account, body.parcel_id)
+            )
+        except KeyError:
+            raise HTTPException(404, "job not found") from None
+        except (IllegalTransition, ValueError) as exc:
+            raise HTTPException(409, str(exc)) from exc
+
+    @router.post("/jobs/{job_id}/review")
+    def review_job(
+        job_id: str,
+        body: ReviewDecision,
+        x_account_id: Annotated[str | None, Header()] = None,
+    ):
+        account = _account(x_account_id)
+        try:
+            return job_out(
+                runner.review(
+                    job_id, account, body.reviewer, body.approve, body.rationale
+                )
+            )
+        except KeyError:
+            raise HTTPException(404, "job not found") from None
+        except (IllegalTransition, ValueError) as exc:
+            raise HTTPException(409, str(exc)) from exc
+
+    @router.post("/portfolios", status_code=201)
+    async def create_portfolio(
+        file: UploadFile,
+        x_account_id: Annotated[str | None, Header()] = None,
+    ):
+        account = _account(x_account_id)
+        text = (await file.read()).decode("utf-8")
+        results = []
+        for i, row in enumerate(csv.DictReader(io.StringIO(text))):
+            try:
+                intake = JobCreate(**row).to_intake()
+                job = runner.submit(account, intake)
+                results.append({"row": i, "job_id": job.id, "state": str(job.state)})
+            except Exception as exc:  # noqa: BLE001 - one bad row never aborts
+                results.append({"row": i, "error": str(exc)})
+        return {"results": results}
+
+    return router
