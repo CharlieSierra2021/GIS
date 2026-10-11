@@ -152,7 +152,7 @@ def build_portal_router(
             candidates=candidates,
             imagery=RightsFilter(registry).imagery_mode(),
             JobState=JobState, not_found=not_found, findings=findings, withheld=withheld,
-            has_map=has_geometry and not demo_mode and job.state != JobState.FAILED,
+            has_map=has_geometry and job.state != JobState.FAILED,
         )
 
     @router.post("/portal/jobs/{job_id}/select")

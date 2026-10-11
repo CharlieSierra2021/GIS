@@ -111,15 +111,26 @@ The workspace labels sample coverage before intake. Try `123 Main St` for screen
 `500 Ocean Blvd` for parcel/unit selection. Other real-world addresses, including
 `436 Pleasant Oaks Trail`, are not evidence of missing properties when the sample
 source cannot match them. The recovery page preserves input for an edit or parcel-ID
-retry and makes no screening conclusions. Synthetic demo geometry is not plotted as
-real parcel boundaries. The non-demo factory defaults to `demo_mode=False` and uses
-coverage-neutral recovery wording.
+retry and makes no screening conclusions. Synthetic demo geometry renders on an
+illustrative coordinate-space canvas (Leaflet `CRS.Simple`), never on a real-world
+basemap. The non-demo factory defaults to `demo_mode=False` and uses
+coverage-neutral recovery wording with geographic basemaps.
 
 The responsive portal includes meaningful statuses, screening findings subject to
 report permissions, publication actions, account-scoped browser report/manifest links,
 and a collapsed technical timeline. Invalid forms retain escaped input. An unresolved
 property no longer gets an empty map or an unrelated imagery warning. This milestone
 improves the workflow; it does not enable live address resolution or production auth.
+
+### Interactive evidence map (M17)
+
+The job map carries a real GIS toolset: basemap switching (OpenStreetMap, CARTO
+light/dark, OpenTopoMap), per-dataset evidence overlay toggles, a layer legend,
+feature popups with dataset/status provenance, a measure-distance tool, live
+coordinate readout, scale bar, fit-to-results and fullscreen controls. Demo jobs get
+the same toolset on a labeled sample coordinate space with a graticule — sample
+fixtures are never draped over a real basemap. Denied or revoked evidence geometry
+is filtered server-side and never reaches the browser.
 
 Persistence (SQLite locally, Postgres in deploy — geometry is WKT text until the
 PostGIS spatial-store milestone):

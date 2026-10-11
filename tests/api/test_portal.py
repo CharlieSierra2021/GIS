@@ -275,9 +275,19 @@ def test_demo_geometry_is_not_presented_as_a_real_location() -> None:
     client = TestClient(create_app(_runner(), demo_mode=True))
     job_id = _submit(client, {"kind": "address", "address": "123 Main St"})
     page = client.get(f"/portal/jobs/{job_id}", headers=H).text
-    assert "Illustrative geometry" in page
-    assert '<div id="map"' not in page
+    assert '<div id="map" class="sample-crs"' in page
+    assert "L.CRS.Simple" in page  # abstract canvas, not a geographic basemap
+    assert "not a real-world location" in page
     assert "Screening findings" in page
+
+
+def test_non_demo_map_uses_geographic_basemaps(client: TestClient) -> None:
+    job_id = _submit(client, {"kind": "address", "address": "123 Main St"})
+    page = client.get(f"/portal/jobs/{job_id}", headers=H).text
+    assert '<div id="map"' in page
+    assert 'id="map" class="sample-crs"' not in page
+    assert "L.CRS.EPSG3857" in page
+    assert "tile.openstreetmap.org" in page  # real basemap only outside demo
 
 
 def test_cross_account_job_page_is_404(client: TestClient) -> None:

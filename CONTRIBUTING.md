@@ -95,6 +95,20 @@ authoritative parcel endpoint and its access permissions, then wire the live par
 source into a non-demo runner. Do not substitute a geocoded point for parcel identity
 or present sample findings as live results. Real authentication remains a launch gate.
 
+### M17 interactive map follow-up
+
+The evidence map gained a full client toolset: four real basemaps (non-demo only),
+grouped overlay toggles, legend, provenance popups, measure tool, coordinate
+readout, scale, fit/reset and fullscreen — all on pinned Leaflet 1.9.4, no new
+dependencies. Demo jobs render on `L.CRS.Simple` with a graticule so fixture
+coordinates are never presented as real locations. Server-side rights filtering
+(M15) is unchanged: denied geometry is absent from `layers.geojson`, not hidden
+in the client.
+
+Next candidates: marker clustering/heat views for dense evidence, candidate-hover
+syncing between picker table and map, and a print/export snapshot once the PDF
+renderer milestone lands.
+
 ### Pick-up protocol
 
 Every milestone commit on `main` ends with a **Pick-up point** paragraph naming the next
