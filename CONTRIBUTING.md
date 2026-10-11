@@ -44,7 +44,7 @@ update owed when it lands.
 | 1 | Rights procurement tracker | P0 | ICD §11/§12 | Gate matrix L1–L9 with owner + evidence link per gate | §11 cells flip with gate citations |
 | 2 | Compose bring-up + Dockerfile | P1 | README §Getting started, SOW D8 | `docker compose up` + `alembic upgrade head` runs clean | README if commands change |
 | 3 | Parcel resolution service | P1 | SRS REQ-RES, ICD §9 | Labelled validation set passes; ambiguity → `AwaitingCustomerInput`; no silent tie-breaks | — |
-| 4 | Jurisdiction router | P1 | SRS REQ-JUR, ICD §3 | All 17 authorities routable from `mun_boundaries`; wrong attribution impossible | — |
+| 4 | Jurisdiction router | P1 | SRS REQ-JUR, ICD §3 | All 18 authorities (county + 17 municipal) routable from `mun_boundaries`; wrong attribution impossible | — |
 | 5 | Connector contract + `connectors.validate` harness | P2 | ICD §5, README §harness | `python -m connectors.validate --provider volusia_county_gis --dataset basemap_parcels` emits registry-ready fixture | expected_fields populated in registry |
 | 6 | Per-provider adapters | P2 | ICD §4/§6 | Contract test + fixture per dataset; failure classes per §5.3 | §6 status → `registered` as rights confirm |
 | 7 | Storage + provenance layer | P2 | SRS REQ-DAT | Three provenance dates per record; audit trail per job | — |

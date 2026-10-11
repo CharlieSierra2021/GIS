@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "property-intel"
+version = "0.1.0"
+description = "Automated, drone-free property due-diligence and land-intelligence service"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "pydantic>=2",
+    "pyyaml",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-cov",
+    "httpx",
+    "yamllint",
+    "ruff",
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+packages = [
+    "api",
+    "connectors",
+    "resolution",
+    "jurisdiction",
+    "analysis",
+    "quality",
+    "reports",
+    "workers",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100

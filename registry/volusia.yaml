@@ -12,37 +12,43 @@ activation: FL-001
 jurisdiction: volusia_county_fl
 
 planning_authorities:                 # ICD §3
-  - {id: volusia_uninc,       name: "Volusia County (unincorporated)", type: county}
-  - {id: daytona_beach,       name: "City of Daytona Beach",           type: municipal}
-  - {id: daytona_beach_shores,name: "City of Daytona Beach Shores",    type: municipal}
-  - {id: debary,              name: "City of DeBary",                  type: municipal}
-  - {id: deland,              name: "City of DeLand",                  type: municipal}
-  - {id: deltona,             name: "City of Deltona",                 type: municipal}
-  - {id: edgewater,           name: "City of Edgewater",               type: municipal}
-  - {id: flagler_beach,       name: "City of Flagler Beach (partial)", type: municipal}
-  - {id: holly_hill,          name: "City of Holly Hill",              type: municipal}
-  - {id: lake_helen,          name: "City of Lake Helen",              type: municipal}
-  - {id: new_smyrna_beach,    name: "City of New Smyrna Beach",        type: municipal}
-  - {id: oak_hill,            name: "City of Oak Hill",                type: municipal}
-  - {id: orange_city,         name: "City of Orange City",             type: municipal}
-  - {id: ormond_beach,        name: "City of Ormond Beach",            type: municipal}
-  - {id: pierson,             name: "Town of Pierson",                 type: municipal}
-  - {id: ponce_inlet,         name: "Town of Ponce Inlet",             type: municipal}
-  - {id: port_orange,         name: "City of Port Orange",             type: municipal}
-  - {id: south_daytona,       name: "City of South Daytona",           type: municipal}
+  - {id: volusia_uninc, name: "Volusia County (unincorporated)", type: county}
+  - {id: daytona_beach, name: "City of Daytona Beach", type: municipal}
+  - {id: daytona_beach_shores, name: "City of Daytona Beach Shores", type: municipal}
+  - {id: debary, name: "City of DeBary", type: municipal}
+  - {id: deland, name: "City of DeLand", type: municipal}
+  - {id: deltona, name: "City of Deltona", type: municipal}
+  - {id: edgewater, name: "City of Edgewater", type: municipal}
+  - {id: flagler_beach, name: "City of Flagler Beach (partial)", type: municipal}
+  - {id: holly_hill, name: "City of Holly Hill", type: municipal}
+  - {id: lake_helen, name: "City of Lake Helen", type: municipal}
+  - {id: new_smyrna_beach, name: "City of New Smyrna Beach", type: municipal}
+  - {id: oak_hill, name: "City of Oak Hill", type: municipal}
+  - {id: orange_city, name: "City of Orange City", type: municipal}
+  - {id: ormond_beach, name: "City of Ormond Beach", type: municipal}
+  - {id: pierson, name: "Town of Pierson", type: municipal}
+  - {id: ponce_inlet, name: "Town of Ponce Inlet", type: municipal}
+  - {id: port_orange, name: "City of Port Orange", type: municipal}
+  - {id: south_daytona, name: "City of South Daytona", type: municipal}
 
 providers:                            # ICD §4
-  - {id: volusia_county_gis, name: "Volusia County GIS",                 base_url: null, access: public_anonymous}
-  - {id: volusia_pa,         name: "Volusia County Property Appraiser",  base_url: null, access: licensed}
-  - {id: volusia_clerk,      name: "Volusia County Clerk of Court",      base_url: null, access: records_request}
-  - {id: volusia_permits,    name: "County/Municipal permitting systems",base_url: null, access: mixed}
-  - {id: fema_nfhl,          name: "FEMA National Flood Hazard Layer",   base_url: null, access: public_anonymous}
-  - {id: usfws_nwi,          name: "USFWS National Wetlands Inventory",  base_url: null, access: public_anonymous}
-  - {id: usda_nrcs,          name: "USDA NRCS Soils (SSURGO/gSSURGO)",   base_url: null, access: public_anonymous}
-  - {id: fgs,                name: "Florida Geological Survey",          base_url: null, access: public_anonymous}
-  - {id: fdep,               name: "Florida Department of Environmental Protection", base_url: null, access: public_anonymous}
-  - {id: sjrwmd,             name: "St. Johns River Water Management District", base_url: null, access: public_anonymous}
-  - {id: fdot,               name: "Florida Department of Transportation", base_url: null, access: public_anonymous}
+  - {id: volusia_county_gis, name: "Volusia County GIS", base_url: null, access: public_anonymous}
+  - {id: volusia_pa, name: "Volusia County Property Appraiser", base_url: null, access: licensed}
+  - {id: volusia_clerk, name: "Volusia County Clerk of Court", base_url: null, access: records_request}
+  - {id: volusia_permits, name: "County/Municipal permitting systems", base_url: null, access: mixed}
+  - {id: fema_nfhl, name: "FEMA National Flood Hazard Layer", base_url: null, access: public_anonymous}
+  - {id: usfws_nwi, name: "USFWS National Wetlands Inventory", base_url: null, access: public_anonymous}
+  - {id: usda_nrcs, name: "USDA NRCS Soils (SSURGO/gSSURGO)", base_url: null, access: public_anonymous}
+  - {id: fgs, name: "Florida Geological Survey", base_url: null, access: public_anonymous}
+  - id: fdep
+    name: "Florida Department of Environmental Protection"
+    base_url: null
+    access: public_anonymous
+  - id: sjrwmd
+    name: "St. Johns River Water Management District"
+    base_url: null
+    access: public_anonymous
+  - {id: fdot, name: "Florida Department of Transportation", base_url: null, access: public_anonymous}
 # base_url: null entries are resolved and verified by connectors.validate
 # (python -m connectors.validate --provider <id> --dataset <id>) before
 # the dataset may leave status: implementation-ready.
