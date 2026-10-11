@@ -88,12 +88,15 @@ def screen(ctx: ScreeningContext, profile: Profile, fetcher: EvidenceFetcher) ->
             )
             continue
 
-        if not dataset.permissions.allows("query"):
+        fetch_perm = (
+            "download" if dataset.access_type == "file_download" else "query"
+        )
+        if not dataset.permissions.allows(fetch_perm):
             findings.append(
                 not_assessed(
                     fid,
                     area,
-                    reason=f"registry denies query for {ds_id}",
+                    reason=f"registry denies {fetch_perm} for {ds_id}",
                     mandatory=spec.mandatory,
                     dataset_id=ds_id,
                 )

@@ -3,11 +3,14 @@ from connectors.contract import (
     Capabilities,
     Connector,
     ConnectorError,
+    Downloadable,
+    DownloadRequest,
     FailureClass,
     Feature,
     FeaturePage,
     FieldSpec,
     HealthStatus,
+    ObjectRef,
     Provenance,
     QueryRequest,
     ServiceDescriptor,
@@ -15,6 +18,8 @@ from connectors.contract import (
 )
 from connectors.evidence import RegistryEvidenceFetcher
 from connectors.factory import ConnectorFactory
+from connectors.filedownload import FileDownloadConnector
+from connectors.ingest_geojson import features_from_geojson
 from connectors.registry import (
     Dataset,
     Permissions,
@@ -31,11 +36,15 @@ __all__ = [
     "ConnectorError",
     "ConnectorFactory",
     "Dataset",
+    "DownloadRequest",
+    "Downloadable",
     "FailureClass",
     "Feature",
     "FeaturePage",
     "FieldSpec",
+    "FileDownloadConnector",
     "HealthStatus",
+    "ObjectRef",
     "Permissions",
     "PlanningAuthority",
     "Provenance",
@@ -45,5 +54,6 @@ __all__ = [
     "RegistryEvidenceFetcher",
     "ServiceDescriptor",
     "compute_fingerprint",
+    "features_from_geojson",
     "load_registry",
 ]

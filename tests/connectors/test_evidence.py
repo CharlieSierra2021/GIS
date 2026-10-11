@@ -122,3 +122,45 @@ def test_registry_denied_dataset_raises() -> None:
     with pytest.raises(ConnectorError) as exc:
         fetcher.fetch("utility_service", PARCEL_WKT, "intersects", None)
     assert exc.value.failure_class == FailureClass.PERMISSION_DENIED
+
+
+GEOJSON = {
+    "type": "FeatureCollection",
+    "features": [
+        {
+            "type": "Feature",
+            "id": "inside",
+            "geometry": {"type": "Point", "coordinates": [-81.045, 29.205]},
+            "properties": {"WETLAND_TYPE": "Palustrine"},
+        },
+        {
+            "type": "Feature",
+            "id": "outside",
+            "geometry": {"type": "Point", "coordinates": [-80.5, 29.9]},
+            "properties": {"WETLAND_TYPE": "Estuarine"},
+        },
+    ],
+}
+
+
+def test_file_download_geojson_filtered_to_parcel(tmp_path) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            content=json.dumps(GEOJSON).encode(),
+            headers={"content-type": "application/geo+json"},
+        )
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    registry = load_registry().model_copy(deep=True)
+    factory = ConnectorFactory(
+        registry,
+        client=client,
+        endpoint_overrides={"nwi_wetlands": "https://data.example.com/nwi.geojson"},
+        cache_dir=tmp_path,
+    )
+    page = RegistryEvidenceFetcher(factory).fetch(
+        "nwi_wetlands", PARCEL_WKT, "intersects", None
+    )
+    assert [f.key for f in page.features] == ["inside"]
+    assert page.features[0].provenance.dataset_id == "nwi_wetlands"

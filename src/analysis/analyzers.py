@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 from shapely import from_wkt
 from shapely.ops import unary_union
 
-from analysis.geo import approx_distance_m
+from analysis.geo import distance_m
 from connectors.contract import Feature
 
 if TYPE_CHECKING:
@@ -84,7 +84,7 @@ def hydric_soils(area, spec, features, ctx):
 def proximity(area, spec, features, ctx):
     parcel = from_wkt(ctx.parcel_wkt)
     distances = [
-        approx_distance_m(parcel, from_wkt(f.geometry_wkt))
+        distance_m(parcel, from_wkt(f.geometry_wkt))
         for f in features
         if f.geometry_wkt
     ]
@@ -108,7 +108,7 @@ def proximity(area, spec, features, ctx):
         "within_buffer": within,
         "nearest_m": round(nearest, 1) if nearest is not None else None,
         "buffer_m": spec.buffer_m,
-        "approximate_distance": True,
+        "measure_crs": "EPSG:3087",
         "feature_count": len(features),
     }
     return statement, evidence, None

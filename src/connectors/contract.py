@@ -2,8 +2,8 @@
 
 Every provider connector implements the ``Connector`` protocol. Analysis code
 consumes the contract only; provider behaviour is confined to adapters.
-``download()`` and ``documents()`` (bulk artefacts, document retrieval) are
-deferred to a later milestone.
+``download()`` is an optional capability (``Downloadable`` protocol,
+file_download datasets); ``documents()`` remains deferred.
 """
 
 import hashlib
@@ -120,3 +120,33 @@ class Connector(Protocol):
     def capabilities(self) -> Capabilities: ...
     def query(self, req: QueryRequest) -> FeaturePage: ...
     def health(self) -> HealthStatus: ...
+
+
+class DownloadRequest(BaseModel):
+    """Bulk-artefact fetch (ICD §5.2-E / §6). ``previous`` carries the
+    ObjectRef from an earlier download so conditional requests
+    (If-None-Match / If-Modified-Since) can short-circuit on 304."""
+
+    url: str | None = None
+    previous: "ObjectRef | None" = None
+
+
+class ObjectRef(BaseModel):
+    """Reference to a downloaded artefact retained in the local cache."""
+
+    dataset_id: str
+    url: str
+    path: str
+    sha256: str
+    bytes: int
+    retrieved_at: datetime
+    content_type: str | None = None
+    etag: str | None = None
+    last_modified: str | None = None
+
+
+class Downloadable(Protocol):
+    """Optional bulk-download capability — file_download datasets only;
+    spatial connectors never implement it."""
+
+    def download(self, req: DownloadRequest) -> ObjectRef: ...

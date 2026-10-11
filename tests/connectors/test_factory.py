@@ -50,6 +50,17 @@ def test_non_arcgis_access_type_not_implemented() -> None:
     assert "not yet implemented" in exc.value.detail
 
 
+def test_file_download_access_type(tmp_path) -> None:
+    from connectors.filedownload import FileDownloadConnector
+
+    factory = _factory(
+        endpoint_overrides={"nwi_wetlands": "https://data.example.com/nwi.geojson"},
+        cache_dir=tmp_path,
+    )
+    conn = factory.for_dataset("nwi_wetlands")
+    assert isinstance(conn, FileDownloadConnector)
+
+
 def test_connector_instances_cached() -> None:
     factory = _factory(
         client=httpx.Client(transport=httpx.MockTransport(lambda r: httpx.Response(200))),

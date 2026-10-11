@@ -19,6 +19,7 @@ dependencies = [
     "jinja2",
     "sqlalchemy>=2",
     "alembic",
+    "pyproj",
 ]
 
 [project.optional-dependencies]
