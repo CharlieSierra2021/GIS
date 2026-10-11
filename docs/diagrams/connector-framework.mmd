@@ -1,0 +1,24 @@
+%% Connector framework — contract, rights check, and ingest normalisation (ICD §5/§9/§14/§17)
+flowchart TB
+    TSK["fetch_* tasks<br/>ICD §8 — fetch_parcels · fetch_fema_flood · fetch_nwi ·<br/>fetch_soils · fetch_permits · fetch_contamination · fetch_landuse · fetch_ortho"]
+    TSK --> ORCH["Connector orchestrator"]
+
+    ORCH --> RIGHTS{"Registry rights check<br/>query / cache / retain_derived<br/>null = denied — REQ-REG-02"}
+    RIGHTS -->|"denied or unknown"| DEG["Degrade per ICD §14<br/>finding rendered 'not assessed / data unavailable'"]
+    RIGHTS -->|"allowed"| CAP{"Access type<br/>ICD §6"}
+
+    subgraph ADAPTERS["Adapters — one per provider, common contract (ICD §5.1)"]
+        CAP --> AQ["arcgis_query"]
+        CAP --> FD["file_download"]
+        CAP --> DR["document_retrieval"]
+        CAP --> RR["records_request<br/>tracked workflow — §7"]
+    end
+
+    AQ & FD & DR & RR --> SRC["Provider endpoints<br/>verified by connectors.validate"]
+    SRC --> NORM["Normalise — ICD §9<br/>EPSG:4326 storage · EPSG:3087 measurement<br/>observation / publication / retrieval dates separate"]
+    NORM --> STORE[("PostGIS + object store")]
+    NORM --> PROV["Provenance + audit trail<br/>dataset ID · feature key · registry version"]
+
+    SRC -.->|"metadata fingerprint mismatch"| DRIFT["schema_drift — quarantine output<br/>ICD §17"]
+    SRC -.->|"timeout / 5xx"| UNAV["source_unavailable — degrade per §14"]
+    SRC -.->|"auth / licence refusal"| PDENY["permission_denied — block finding, disclose"]

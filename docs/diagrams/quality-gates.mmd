@@ -1,0 +1,28 @@
+%% Quality gate evaluation — disposition flow (ICD §15, SRS REQ-QG)
+flowchart LR
+    FIN["Screened findings<br/>+ evidence set"] --> G1{"Parcel identity<br/>single confirmed?"}
+
+    G1 -->|"no — mandatory"| BLK["BLOCKED<br/>never publishes"]
+    G1 -->|"yes"| G2{"License gate<br/>display + report rights ✓"}
+
+    G2 -->|"null or denied"| BLK
+    G2 -->|"pass"| G3{"Freshness gate<br/>within policy?"}
+
+    G3 -->|"mandatory dataset stale"| REV["HUMAN REVIEW"]
+    G3 -->|"non-mandatory stale"| G4
+    G3 -->|"fresh"| G4{"Coverage gate<br/>datasets returned?"}
+
+    G4 -->|"mandatory failed or denied"| REV
+    G4 -->|"empty — disclosed 'no record'"| G5
+    G4 -->|"complete"| G5{"Conflict gate<br/>contradictions?"}
+
+    G5 -->|"material identity/geometry conflict"| REV
+    G5 -->|"minor — disclosed"| QUAL
+    G5 -->|"none"| AP["AUTO-PUBLISH"]
+
+    REV -->|"approved"| AP
+    REV -->|"approved with qualifications"| QUAL["QUALIFIED OUTPUT<br/>published with disclosures"]
+    REV -->|"rejected"| BLK
+
+    AP --> PUB["publish_report<br/>PDF + manifest"]
+    QUAL --> PUB

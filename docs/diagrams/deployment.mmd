@@ -1,0 +1,22 @@
+%% Deployment view — docker-compose single host (README §Tech stack, deploy/docker-compose.yml)
+flowchart LR
+    U[Customer browser] -->|"HTTPS :8000"| API
+    OP[Reviewer / operator] --> API
+
+    subgraph HOST["Docker Compose — single host (deploy/docker-compose.yml)"]
+        API["api<br/>FastAPI · Python 3.12<br/>jobs · portfolios · files · review"]
+        WRK["worker<br/>Celery — ICD §8 task types<br/>fetch_* · screen_profile · quality_gates · publish_report"]
+        PG[("postgis<br/>PostgreSQL 16 + PostGIS<br/>source + derived geometries")]
+        RDS[("redis<br/>broker + result backend")]
+        OBJ[("minio<br/>S3 versioned object store<br/>documents · rasters · fixtures")]
+    end
+
+    API --> PG
+    API --> RDS
+    API --> OBJ
+    WRK --> RDS
+    WRK --> PG
+    WRK --> OBJ
+    WRK -->|"bounded retries, classified failures — ICD §5.3"| EXT
+
+    EXT["External providers — ICD §4<br/>ArcGIS REST · downloads · documents · records requests"]

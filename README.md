@@ -22,33 +22,25 @@ Every report must remain honest about this boundary. See `docs/SRS.md` §1.3 and
 
 ## Architecture
 
-```text
-Customer intake (address / parcel / geometry / portfolio CSV)
-        │
-        ▼
-Parcel resolution ── ambiguity ──► AwaitingCustomerInput
-        │                               (customer selects candidate)
-        ▼
-Jurisdiction router ──► municipal vs. county planning authority
-        ▼
-Connector orchestration ──► ArcGIS REST / downloads / documents / records requests
-        │
-        ▼
-Source registry (authority · vintage · license · freshness · permissions)
-        │
-        ▼
-PostGIS + versioned object store + audit trail
-        │
-        ▼
-Florida screening engine (flood · wetlands · hydric soils · subsidence ·
-                        permits · contamination · land use · access · utilities)
-        │
-        ▼
-Quality gates ──► auto-publish | qualified output | human review | blocked
-        │
-        ▼
-Report publisher + customer portal (Leaflet/OpenLayers)
+```mermaid
+flowchart TB
+    CUST[Customer] --> INTAKE["Intake API<br/>address / parcel ID / geometry / portfolio CSV"]
+    INTAKE --> RES["Parcel resolution<br/>src/resolution"]
+    RES -->|"multiple candidates"| ACI["AwaitingCustomerInput"]
+    ACI -->|"customer selects"| RES
+    RES --> JUR["Jurisdiction router<br/>county vs. municipal authority"]
+    JUR --> ORCH["Connector orchestration<br/>ArcGIS REST / downloads / documents / records requests"]
+    ORCH --> EXT["External sources<br/>county GIS · PA · clerk · FEMA · NWI · NRCS · FGS · FDEP · SJRWMD · FDOT"]
+    EXT --> STORE[("PostGIS + versioned object store + audit trail")]
+    ORCH --> REG["Source registry — registry/volusia.yaml<br/>authority · vintage · license · freshness · permissions"]
+    STORE --> ANL["Florida screening engine<br/>flood · wetlands · hydric soils · subsidence ·<br/>permits · contamination · land use · access · utilities"]
+    ANL --> QG["Quality gates"]
+    QG -->|"auto-publish / qualified"| PUB["Report publisher + portal<br/>Leaflet / OpenLayers"]
+    QG -->|"human review"| RVW["Reviewer queue"] --> PUB
+    QG -->|"blocked"| BLK["Blocked — disclosed reason"]
 ```
+
+Full-detail versions live in [`docs/diagrams/`](docs/diagrams/).
 
 ## Tech stack
 
@@ -136,7 +128,22 @@ detects schema drift, and writes a registry-ready fixture record.
 | [`docs/SOW.md`](docs/SOW.md) | Scope, deliverables, phases, acceptance, exclusions |
 | [`docs/SRS.md`](docs/SRS.md) | Normative system requirements + verification plan |
 | [`docs/ICD-FL-001.md`](docs/ICD-FL-001.md) | Volusia connector contracts, rights, tests, freeze criteria |
+| [`docs/diagrams/`](docs/diagrams/) | System diagrams (Mermaid `.mmd`): context, lifecycle, deployment, connectors, gates |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | Docs-as-code pipeline, PR checklist, work-ahead task board |
+
+## System diagrams
+
+Mermaid sources in `docs/diagrams/` — edit the `.mmd` file in the same PR as the code
+or doc it depicts; GitHub renders them in previews and they can be pasted into draw.io
+(Extras → Edit Diagram → Mermaid) if the team needs drawio exports.
+
+| Diagram | File | Source of truth it depicts |
+|---|---|---|
+| System context / pipeline | [`system-context.mmd`](docs/diagrams/system-context.mmd) | README §Architecture, ICD §4/§6 |
+| Job lifecycle states | [`job-lifecycle.mmd`](docs/diagrams/job-lifecycle.mmd) | SRS REQ-RES/QG, ICD §8/§15 |
+| Deployment (compose) | [`deployment.mmd`](docs/diagrams/deployment.mmd) | `deploy/docker-compose.yml` |
+| Connector framework | [`connector-framework.mmd`](docs/diagrams/connector-framework.mmd) | ICD §5/§9/§14/§17 |
+| Quality-gate dispositions | [`quality-gates.mmd`](docs/diagrams/quality-gates.mmd) | ICD §15, SRS REQ-QG |
 
 ## Launch status
 

@@ -1,0 +1,34 @@
+%% System context — end-to-end pipeline (README §Architecture, ICD §4/§6)
+flowchart TB
+    subgraph IN[Intake]
+        CUST[Customer] --> INTAKE["Intake API<br/>address / parcel ID / geometry / portfolio CSV"]
+    end
+
+    INTAKE --> RES["Parcel resolution<br/>src/resolution — REQ-RES"]
+    RES -->|"multiple plausible candidates"| ACI["AwaitingCustomerInput"]
+    ACI -->|"customer selects candidate"| RES
+    RES -->|"identity confirmed"| JUR["Jurisdiction router<br/>src/jurisdiction — REQ-JUR"]
+    JUR --> ORCH["Connector orchestration<br/>src/connectors — REQ-CON"]
+
+    subgraph EXT["External sources — ICD §4"]
+        VG["volusia_county_gis<br/>parcels · boundaries · FLU · ortho"]
+        CTY["County records<br/>PA CAMA · clerk · permits"]
+        FED["Federal / state<br/>FEMA · NWI · NRCS · FGS · FDEP · SJRWMD · FDOT"]
+    end
+
+    ORCH --> EXT
+    EXT --> STORE[("PostGIS + versioned object store<br/>+ audit trail — REQ-DAT")]
+    ORCH --> REG["Source registry<br/>registry/volusia.yaml<br/>authority · vintage · license · freshness · permissions"]
+    REG -.->|"rights check at query/display/report time"| ORCH
+
+    STORE --> ANL["Florida screening engine<br/>florida_land_screening_v1 — REQ-ANL"]
+    ANL --> QG["Quality gates<br/>src/quality — REQ-QG"]
+
+    QG -->|"auto_publish"| PUB["Report publisher<br/>src/reports — REQ-RPT"]
+    QG -->|"qualified_output"| PUB
+    QG -->|"human_review"| RVW["Reviewer queue"]
+    RVW --> PUB
+    QG -->|"blocked"| BLK["Blocked — disclosed reason"]
+
+    PUB --> PORTAL["Customer portal<br/>Leaflet / OpenLayers — REQ-PTL"]
+    PORTAL --> CUST

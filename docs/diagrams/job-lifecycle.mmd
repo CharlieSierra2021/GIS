@@ -1,0 +1,39 @@
+%% Job lifecycle state machine (SRS REQ-INT-04, REQ-RES-03, REQ-QG-02; ICD §15)
+stateDiagram-v2
+    [*] --> Received : intake accepted and normalised
+    Received --> Resolving : resolve_parcel task
+
+    Resolving --> AwaitingCustomerInput : multiple plausible candidates
+    AwaitingCustomerInput --> Resolving : customer selection recorded
+    Resolving --> RoutingJurisdiction : single confirmed identity
+
+    RoutingJurisdiction --> Fetching : planning authority resolved
+    RoutingJurisdiction --> Fetching : authority unresolved — jurisdiction findings flagged
+
+    Fetching --> Screening : fetch_source tasks complete
+    Screening --> QualityGates : screen_profile complete
+
+    QualityGates --> AutoPublish : identity + license + all mandatory gates pass
+    QualityGates --> QualifiedOutput : non-mandatory gaps disclosed
+    QualityGates --> HumanReview : mandatory stale / material conflict
+    QualityGates --> Blocked : unresolved identity or denied right
+
+    HumanReview --> AutoPublish : reviewer approves
+    HumanReview --> QualifiedOutput : approved with qualifications
+    HumanReview --> Blocked : reviewer rejects
+
+    AutoPublish --> Published : report rendered + manifest
+    QualifiedOutput --> Published : report rendered + manifest
+    Published --> [*]
+    Blocked --> [*]
+
+    note right of AwaitingCustomerInput
+        Job state, not a task (ICD §8).
+        SLA clock pauses for customer input
+        and pending records requests.
+    end note
+
+    note right of Blocked
+        Never published silently.
+        Reason recorded in audit trail.
+    end note
