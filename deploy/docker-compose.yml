@@ -1,0 +1,54 @@
+# Single-host dev deployment (README §Tech stack).
+# api/worker Dockerfiles land with phase P1; until then the compose stack
+# still brings up postgis/redis/minio for connector and registry work.
+services:
+  postgis:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-property_intel}
+      POSTGRES_USER: ${POSTGRES_USER:?set in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in .env}
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:?set in .env}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:?set in .env}
+    ports: ["9000:9000", "9001:9001"]
+    volumes: [minio:/data]
+
+  api:
+    build: ..            # Dockerfile TODO — phase P1 (SOW D8)
+    env_file: ../.env
+    ports: ["8000:8000"]
+    depends_on:
+      postgis: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      minio: {condition: service_started}
+
+  worker:
+    build: ..            # Dockerfile TODO — phase P1
+    env_file: ../.env
+    command: celery -A workers worker --loglevel=INFO
+    depends_on:
+      postgis: {condition: service_healthy}
+      redis: {condition: service_healthy}
+
+volumes:
+  pgdata:
+  minio:

@@ -1,0 +1,327 @@
+# Connector registry seed — Volusia County activation FL-001
+#
+# GENERATED FROM docs/ICD-FL-001.md §19 — DO NOT HAND-EDIT.
+# Regenerate via the registry_sync tooling when the ICD is amended.
+# Divergence between this file and ICD §11/§19 fails CI.
+#
+# Permissions legend (ICD §11): null = unknown = denied. A permission may
+# only flip to true with a launch-gate citation in license.gate.
+
+registry_version: 0.1.0
+activation: FL-001
+jurisdiction: volusia_county_fl
+
+planning_authorities:                 # ICD §3
+  - {id: volusia_uninc,       name: "Volusia County (unincorporated)", type: county}
+  - {id: daytona_beach,       name: "City of Daytona Beach",           type: municipal}
+  - {id: daytona_beach_shores,name: "City of Daytona Beach Shores",    type: municipal}
+  - {id: debary,              name: "City of DeBary",                  type: municipal}
+  - {id: deland,              name: "City of DeLand",                  type: municipal}
+  - {id: deltona,             name: "City of Deltona",                 type: municipal}
+  - {id: edgewater,           name: "City of Edgewater",               type: municipal}
+  - {id: flagler_beach,       name: "City of Flagler Beach (partial)", type: municipal}
+  - {id: holly_hill,          name: "City of Holly Hill",              type: municipal}
+  - {id: lake_helen,          name: "City of Lake Helen",              type: municipal}
+  - {id: new_smyrna_beach,    name: "City of New Smyrna Beach",        type: municipal}
+  - {id: oak_hill,            name: "City of Oak Hill",                type: municipal}
+  - {id: orange_city,         name: "City of Orange City",             type: municipal}
+  - {id: ormond_beach,        name: "City of Ormond Beach",            type: municipal}
+  - {id: pierson,             name: "Town of Pierson",                 type: municipal}
+  - {id: ponce_inlet,         name: "Town of Ponce Inlet",             type: municipal}
+  - {id: port_orange,         name: "City of Port Orange",             type: municipal}
+  - {id: south_daytona,       name: "City of South Daytona",           type: municipal}
+
+providers:                            # ICD §4
+  - {id: volusia_county_gis, name: "Volusia County GIS",                 base_url: null, access: public_anonymous}
+  - {id: volusia_pa,         name: "Volusia County Property Appraiser",  base_url: null, access: licensed}
+  - {id: volusia_clerk,      name: "Volusia County Clerk of Court",      base_url: null, access: records_request}
+  - {id: volusia_permits,    name: "County/Municipal permitting systems",base_url: null, access: mixed}
+  - {id: fema_nfhl,          name: "FEMA National Flood Hazard Layer",   base_url: null, access: public_anonymous}
+  - {id: usfws_nwi,          name: "USFWS National Wetlands Inventory",  base_url: null, access: public_anonymous}
+  - {id: usda_nrcs,          name: "USDA NRCS Soils (SSURGO/gSSURGO)",   base_url: null, access: public_anonymous}
+  - {id: fgs,                name: "Florida Geological Survey",          base_url: null, access: public_anonymous}
+  - {id: fdep,               name: "Florida Department of Environmental Protection", base_url: null, access: public_anonymous}
+  - {id: sjrwmd,             name: "St. Johns River Water Management District", base_url: null, access: public_anonymous}
+  - {id: fdot,               name: "Florida Department of Transportation", base_url: null, access: public_anonymous}
+# base_url: null entries are resolved and verified by connectors.validate
+# (python -m connectors.validate --provider <id> --dataset <id>) before
+# the dataset may leave status: implementation-ready.
+
+# Convenience fragments — permissions copied verbatim from ICD §11.
+_x_county_default: &county_default    # discover/query/download known; rest pending
+  discover: true
+  query: true
+  download: true
+  cache: null
+  retain_derived: null
+  display: null
+  report: null
+  redistribute: false
+
+_x_federal_default: &federal_default  # public domain data; report right still gated
+  discover: true
+  query: true
+  download: true
+  cache: true
+  retain_derived: null
+  display: true
+  report: null
+  redistribute: false
+
+_x_pending_default: &pending_default  # discovery only until licence confirmed
+  discover: true
+  query: null
+  download: null
+  cache: null
+  retain_derived: null
+  display: null
+  report: null
+  redistribute: false
+
+datasets:                             # ICD §6 — one entry per catalog row
+  - id: basemap_parcels
+    provider: volusia_county_gis
+    access_type: arcgis_query
+    endpoint: null                    # set by connectors.validate
+    layer_id: null
+    native_crs: null
+    join_key: parcel_id
+    expected_fields: []               # populated from first validate() run (ICD §19)
+    freshness: {policy: monthly, max_age_days: 45}
+    vintage: {observation: null, publication: null}
+    license: {name: null, ref: null, gate: L1}
+    permissions: *county_default
+    status: implementation-ready
+    tasks: [fetch_parcels, drift_check, refresh_source]
+
+  - id: mun_boundaries
+    provider: volusia_county_gis
+    access_type: arcgis_query
+    endpoint: null
+    layer_id: null
+    native_crs: null
+    join_key: authority_id
+    expected_fields: []
+    freshness: {policy: quarterly, max_age_days: 120}
+    vintage: {observation: null, publication: null}
+    license: {name: null, ref: null, gate: L1}
+    permissions: *county_default
+    status: implementation-ready
+    tasks: [fetch_source, drift_check, refresh_source]
+
+  - id: county_flu
+    provider: volusia_county_gis
+    access_type: arcgis_query
+    endpoint: null
+    layer_id: null
+    native_crs: null
+    join_key: null                    # spatial join only (ICD §9)
+    expected_fields: []
+    freshness: {policy: quarterly, max_age_days: 120}
+    vintage: {observation: null, publication: null}
+    license: {name: null, ref: null, gate: L1}
+    permissions: *county_default
+    status: implementation-ready
+    tasks: [fetch_landuse, drift_check, refresh_source]
+
+  - id: mun_flu                       # expands to mun_flu_<authority_id> per ICD §3
+    provider: volusia_county_gis      # may re-point to municipal hosts per authority
+    access_type: arcgis_query
+    per_authority: true
+    endpoint: null
+    layer_id: null
+    native_crs: null
+    join_key: null
+    expected_fields: []
+    freshness: {policy: quarterly, max_age_days: 120}
+    vintage: {observation: null, publication: null}
+    license: {name: null, ref: null, gate: L1}
+    permissions: *county_default
+    status: implementation-ready
+    tasks: [fetch_landuse, drift_check, refresh_source]
+
+  - id: ortho_2024
+    provider: volusia_county_gis
+    access_type: arcgis_query         # tile/WMS read
+    endpoint: null
+    layer_id: null
+    native_crs: null
+    join_key: null
+    expected_fields: []
+    freshness: {policy: per_flight}
+    vintage: {observation: "2024", publication: null}
+    license: {name: null, ref: null, gate: L2}   # commercial vendor processing — see ICD §11
+    permissions:
+      discover: true
+      query: true
+      download: null
+      cache: null
+      retain_derived: null
+      display: null                   # DENIED until L2 closes — imagery-denied path is launch default
+      report: null
+      redistribute: false
+    status: implementation-ready
+    tasks: [fetch_ortho, drift_check]
+
+  - id: cama
+    provider: volusia_pa
+    access_type: file_download        # or arcgis_query where offered
+    endpoint: null
+    join_key: parcel_id
+    expected_fields: []
+    freshness: {policy: monthly, max_age_days: 45}
+    vintage: {observation: null, publication: null}
+    license: {name: null, ref: null, gate: L1}
+    permissions:
+      discover: true
+      query: true
+      download: null
+      cache: null
+      retain_derived: null
+      display: null                   # n/a tabular — no map layer
+      report: null
+      redistribute: false
+    status: implementation-ready
+    tasks: [fetch_source, drift_check, refresh_source]
+
+  - id: official_records
+    provider: volusia_clerk
+    access_type: records_request
+    endpoint: null
+    join_key: parcel_id
+    expected_fields: []
+    freshness: {policy: on_request}
+    vintage: {observation: null, publication: null}
+    license: {name: null, ref: null, gate: L7}
+    permissions: *pending_default
+    status: implementation-ready
+    tasks: [fetch_source]
+
+  - id: permits
+    provider: volusia_permits
+    access_type: arcgis_query         # some docs via document_retrieval
+    endpoint: null
+    join_key: parcel_id
+    expected_fields: []
+    freshness: {policy: weekly, max_age_days: 14}
+    vintage: {observation: null, publication: null}
+    license: {name: null, ref: null, gate: L7}
+    permissions: *pending_default
+    status: implementation-ready
+    tasks: [fetch_permits, drift_check]
+
+  - id: nfhl_flood
+    provider: fema_nfhl
+    access_type: file_download        # or arcgis_query
+    endpoint: null
+    join_key: null
+    expected_fields: []
+    freshness: {policy: quarterly, max_age_days: 120}
+    vintage: {observation: null, publication: null}   # panel effective dates at ingest
+    license: {name: "FEMA NFHL terms", ref: null, gate: L3}
+    permissions: *federal_default
+    status: implementation-ready
+    tasks: [fetch_fema_flood, drift_check, refresh_source]
+
+  - id: nwi_wetlands
+    provider: usfws_nwi
+    access_type: file_download
+    endpoint: null
+    join_key: null
+    expected_fields: []
+    freshness: {policy: quarterly, max_age_days: 120}
+    vintage: {observation: null, publication: null}
+    license: {name: "USFWS NWI terms", ref: null, gate: L4}
+    permissions: *federal_default
+    status: implementation-ready
+    tasks: [fetch_nwi, drift_check, refresh_source]
+
+  - id: ssurgo_soils
+    provider: usda_nrcs
+    access_type: file_download
+    endpoint: null
+    join_key: null
+    expected_fields: []
+    freshness: {policy: annual, max_age_days: 400}
+    vintage: {observation: null, publication: null}
+    license: {name: "NRCS terms", ref: null, gate: L5}
+    permissions:
+      discover: true
+      query: true
+      download: true
+      cache: true
+      retain_derived: true
+      display: true
+      report: null
+      redistribute: false
+    status: implementation-ready
+    tasks: [fetch_soils, drift_check, refresh_source]
+
+  - id: sinkhole_reports
+    provider: fgs
+    access_type: file_download
+    endpoint: null
+    join_key: null
+    expected_fields: []
+    freshness: {policy: quarterly, max_age_days: 120}
+    vintage: {observation: null, publication: null}
+    license: {name: "FGS terms", ref: null, gate: L6}
+    permissions: *federal_default
+    status: implementation-ready
+    tasks: [fetch_source, drift_check, refresh_source]
+
+  - id: fdep_contam
+    provider: fdep
+    access_type: arcgis_query
+    endpoint: null
+    layer_id: null
+    native_crs: null
+    join_key: null
+    expected_fields: []
+    freshness: {policy: monthly, max_age_days: 45}
+    vintage: {observation: null, publication: null}
+    license: {name: "FDEP terms", ref: null, gate: L6}
+    permissions: *federal_default
+    status: implementation-ready
+    tasks: [fetch_contamination, drift_check, refresh_source]
+
+  - id: sjrwmd_landuse
+    provider: sjrwmd
+    access_type: file_download
+    endpoint: null
+    join_key: null
+    expected_fields: []
+    freshness: {policy: annual, max_age_days: 400}
+    vintage: {observation: null, publication: null}
+    license: {name: "SJRWMD terms", ref: null, gate: L6}
+    permissions: *federal_default
+    status: implementation-ready
+    tasks: [fetch_source, drift_check, refresh_source]
+
+  - id: fdot_roads
+    provider: fdot
+    access_type: file_download
+    endpoint: null
+    join_key: null
+    expected_fields: []
+    freshness: {policy: quarterly, max_age_days: 120}
+    vintage: {observation: null, publication: null}
+    license: {name: "FDOT terms", ref: null, gate: L6}
+    permissions: *federal_default
+    status: implementation-ready
+    tasks: [fetch_source, drift_check, refresh_source]
+
+  - id: utility_service
+    provider: volusia_county_gis      # may split per municipal utility (ICD §6)
+    access_type: arcgis_query
+    endpoint: null
+    layer_id: null
+    native_crs: null
+    join_key: null
+    expected_fields: []
+    freshness: {policy: quarterly, max_age_days: 120}
+    vintage: {observation: null, publication: null}
+    license: {name: null, ref: null, gate: L1}
+    permissions: *pending_default
+    status: implementation-ready
+    tasks: [fetch_source, drift_check]

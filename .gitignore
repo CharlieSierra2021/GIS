@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Environment / secrets — never commit real values
+.env
+*.env.local
+
+# Data artefacts
+*.tif
+*.tiff
+*.gpkg
+data/
+fixtures/private/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
