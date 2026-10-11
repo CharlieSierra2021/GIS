@@ -94,17 +94,41 @@ python -m venv .venv && . .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
 pytest -q                         # unit + contract + acceptance (fixture-backed)
 pytest -q -m acceptance           # FL-TST subset only
-ruff check src tests
-uvicorn api.main:app --reload     # GET /health → registry version
+ruff check src tests scripts
+python scripts/dev_seed.py        # API + portal on :8010 with two seeded jobs (toy data)
+#   → http://localhost:8010/portal?account=acct-1
+uvicorn api.main:app --reload     # bare API; in-memory stores unless DATABASE_URL is set
 ```
 
-Full stack (when the PostGIS/alembic layer lands — board item #7):
+Persistence (SQLite locally, Postgres in deploy — geometry is WKT text until the
+PostGIS spatial-store milestone):
+
+```bash
+export DATABASE_URL=sqlite:///./dev.db      # or postgresql+psycopg://...
+alembic upgrade head                        # jobs, audit_events, evidence_artifacts
+```
+
+Full stack (compose stack is unverified on this machine — no docker locally):
 
 ```bash
 cp deploy/env.example .env        # fill in local values; secrets go to a secrets manager
 docker compose -f deploy/docker-compose.yml up -d   # postgis, redis, minio, api, worker
 docker compose exec api alembic upgrade head        # schema migrations
 ```
+
+### API surface
+
+| Method | Path | Purpose |
+|---|---|---|
+| `POST` | `/jobs` | Submit address / parcel ID / geometry intake (`X-Account-Id` header required) |
+| `POST` | `/portfolios` | Multipart CSV; rows processed independently (REQ-INT-03) |
+| `GET` | `/jobs`, `/jobs/{id}` | Job state, transitions, resolution, routing, screening, gates |
+| `POST` | `/jobs/{id}/select-candidate` | Resume an `AwaitingCustomerInput` job (REQ-RES-03) |
+| `POST` | `/jobs/{id}/review` | Reviewer disposition from `HumanReview` |
+| `POST` | `/jobs/{id}/publish` | Publish from `AutoPublish` / `QualifiedOutput` |
+| `GET` | `/jobs/{id}/report` · `/manifest` | Rendered HTML report · manifest JSON |
+| `GET` | `/jobs/{id}/audit` · `/evidence` | Append-only audit events · reconstructed evidence set (FL-TST-12) |
+| `GET` | `/portal/...` | Customer portal: job list, submit form, candidate picker, Leaflet map, rights-filtered `layers.geojson` |
 
 Connector validation harness (verify a live service before registering it):
 
@@ -128,9 +152,14 @@ detects schema drift, and writes a registry-ready fixture record to
 | Finding model with boundary-language guard | `analysis/findings.py` | done — forbidden phrases rejected at construction |
 | Quality gates + four dispositions | `quality/gates.py` | done — license gate is binary PASS/BLOCKED |
 | `florida_land_screening_v1` engine | `analysis/engine.py` | done — nine areas, ICD §14 degradation |
-| API jobs + Celery tasks (ICD §8) | `api/`, `workers/` | next — only `/health` exists |
-| PostGIS persistence + audit trail | — | pending |
-| Report publisher + portal, imagery-denied path | `reports/` | pending — launch blocker FL-TST-14 |
+| Registry-backed evidence fetcher + ArcGIS parcel source | `connectors/evidence.py`, `resolution/arcgis_source.py` | done — pagination, buffers, per-authority endpoints |
+| Job pipeline, state machine, jobs API, Celery shells (ICD §8) | `workers/`, `api/` | done — in-process end to end; `AwaitingCustomerInput` resumable |
+| Report publisher + manifest + imagery-denied path | `reports/` | done — HTML; PDF renderer is a deploy-time dep (WeasyPrint) |
+| SQL persistence, audit trail, evidence reconstruction | `workers/storage.py`, `audit.py`, `reconstruct.py` | done — SQLite/Postgres via alembic; cache-denied evidence reported as gaps |
+| Customer portal (Leaflet, candidate picker, rights-filtered layers) | `api/portal.py` | done — display-denied geometry never leaves the server |
+| `file_download` / `records_request` connector types | `connectors/` | in progress — ArcGIS only so far |
+| PostGIS geometry columns, real auth, ortho tile layer, PDF | — | pending |
+| Live endpoints + rights (P0 procurement) | `registry/volusia.yaml` | pending — every `display`/`report` cell still `null` |
 
 Test baseline: see the latest `feat(M*)` commit message (`git log --grep="Pick-up point" -1`).
 See `CONTRIBUTING.md` for the task board and pick-up protocol.

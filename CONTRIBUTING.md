@@ -45,20 +45,23 @@ gap remains; blank = not started.
 | # | Tasking | Phase | Contract | Done looks like | Doc updates | Status |
 |---|---------|-------|----------|-----------------|-------------|--------|
 | 1 | Rights procurement tracker | P0 | ICD §11/§12 | Gate matrix L1–L9 with owner + evidence link per gate | §11 cells flip with gate citations | |
-| 2 | Compose bring-up + Dockerfile | P1 | README §Getting started, SOW D8 | `docker compose up` + `alembic upgrade head` runs clean | README if commands change | partial — Dockerfile + CI (3055e79); compose unverified, no alembic yet |
+| 2 | Compose bring-up + Dockerfile | P1 | README §Getting started, SOW D8 | `docker compose up` + `alembic upgrade head` runs clean | README if commands change | partial — Dockerfile + CI (3055e79), alembic (6646232); compose unverified, no docker locally |
 | 3 | Parcel resolution service | P1 | SRS REQ-RES, ICD §9 | Labelled validation set passes; ambiguity → `AwaitingCustomerInput`; no silent tie-breaks | — | done (a38ea54) — 13-case validation set, FL-TST-02/03/04 |
 | 4 | Jurisdiction router | P1 | SRS REQ-JUR, ICD §3 | All 18 authorities (county + 17 municipal) routable from `mun_boundaries`; wrong attribution impossible | — | done (c7bb466) — FL-TST-10 partial |
 | 5 | Connector contract + `connectors.validate` harness | P2 | ICD §5, README §harness | `python -m connectors.validate --provider volusia_county_gis --dataset basemap_parcels` emits registry-ready fixture | expected_fields populated in registry | done (a4bbacf) — harness exits 2 until an endpoint is registered |
-| 6 | Per-provider adapters | P2 | ICD §4/§6 | Contract test + fixture per dataset; failure classes per §5.3 | §6 status → `registered` as rights confirm | partial — ArcGIS adapter + mock fixtures; `file_download`/`records_request` adapters and a `ParcelSource` over ArcGIS pending |
-| 7 | Storage + provenance layer | P2 | SRS REQ-DAT | Three provenance dates per record; audit trail per job | — | partial — Provenance/SourceCitation models (a4bbacf, 1dc562b); PostGIS persistence + alembic pending |
+| 6 | Per-provider adapters | P2 | ICD §4/§6 | Contract test + fixture per dataset; failure classes per §5.3 | §6 status → `registered` as rights confirm | partial — ArcGIS adapter + `ArcGISParcelSource` (952ae27); `file_download` in progress (M12); `records_request`/`document_retrieval` pending |
+| 7 | Storage + provenance layer | P2 | SRS REQ-DAT | Three provenance dates per record; audit trail per job | — | done (6646232) — SQL stores, append-only audit, evidence reconstruction, FL-TST-12; PostGIS geometry columns still pending |
 | 8 | `florida_land_screening_v1` engine | P3 | SRS REQ-ANL | Nine screening areas produce cited findings; absence-of-evidence phrasing enforced | ICD §10 if new claim types | done (15fc7d3) — FL-TST-06/07; distances approximate until pyproj |
 | 9 | Quality gates + dispositions | P4 | ICD §15, SRS REQ-QG | Four dispositions exercised; license gate blocks on `null` | — | done (1dc562b) — FL-TST-11 |
-| 10 | Report publisher + portal | P4 | SRS REQ-RPT/PTL | PDF + manifest; portal renders with rights-filtered layers | — | |
-| 11 | **Imagery-denied path E2E** | P4 | ICD §14, FL-TST-14 | Full report/portal renders with zero imagery — launch blocker | §11/L2 outcome | |
-| 12 | FL-TST acceptance suite | P5 | ICD §16 | FL-TST-01…15 green on fixtures | — | partial — 02/03/04/05/06/07/10/11 on fixtures |
+| 10 | Report publisher + portal | P4 | SRS REQ-RPT/PTL | PDF + manifest; portal renders with rights-filtered layers | — | done (3e1cce8, f898707) — HTML + manifest, portal with `layers.geojson`; PDF renderer deploy-time |
+| 11 | **Imagery-denied path E2E** | P4 | ICD §14, FL-TST-14 | Full report/portal renders with zero imagery — launch blocker | §11/L2 outcome | done on fixtures (3e1cce8, f898707) — report + portal; live demo before freeze still owed |
+| 12 | FL-TST acceptance suite | P5 | ICD §16 | FL-TST-01…15 green on fixtures | — | partial — 01/02/03/04/05/06/07/10/11/12/13/14 on fixtures; 08/09/15 open |
 | 13 | Freeze review | P5 | ICD §18 | Five freeze criteria met; registry tagged | README launch status | |
-| 14 | API jobs + Celery wiring | P3 | ICD §8, SRS REQ-INT | `POST /jobs` → resolve → route → fetch → screen → gates; `AwaitingCustomerInput` round-trip via API; task names per ICD §8 | README commands | next up |
-| 15 | Registry-backed `EvidenceFetcher` | P2 | ICD §5/§6 | `analysis.engine.EvidenceFetcher` implemented over `ArcGISFeatureServiceConnector` + registry rights | — | next up |
+| 14 | API jobs + Celery wiring | P3 | ICD §8, SRS REQ-INT | `POST /jobs` → resolve → route → fetch → screen → gates; `AwaitingCustomerInput` round-trip via API; task names per ICD §8 | README commands | done (a79c6a8) |
+| 15 | Registry-backed `EvidenceFetcher` | P2 | ICD §5/§6 | `analysis.engine.EvidenceFetcher` implemented over `ArcGISFeatureServiceConnector` + registry rights | — | done (952ae27) |
+| 16 | Real auth (replace `X-Account-Id`) | P4 | SRS REQ-SEC-03 | Per-account tokens; store isolation unchanged | README API table | |
+| 17 | PostGIS geometry columns + spatial store | P2 | SRS REQ-DAT-01/03 | Source + derived geometries as PostGIS types; alembic revision | — | |
+| 18 | Ortho tile layer (licensed branch) + PDF renderer | P4 | ICD §11 L2, REQ-RPT-01 | WeasyPrint in deploy image; tiles only when `ortho_2024` display+report ✓ | — | |
 
 ### Pick-up protocol
 
