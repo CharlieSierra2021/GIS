@@ -2,6 +2,7 @@
 
 from fastapi import FastAPI
 
+from api.portal import build_portal_router
 from api.routes_jobs import build_router
 from connectors.registry import load_registry
 from workers import runtime
@@ -17,6 +18,9 @@ def create_app(runner: JobRunner | None = None) -> FastAPI:
 
     app.include_router(
         build_router(runner, runner.store, runner.audit, runner.evidence_store)
+    )
+    app.include_router(
+        build_portal_router(runner, runner.store, runner.registry)
     )
 
     @app.get("/health")

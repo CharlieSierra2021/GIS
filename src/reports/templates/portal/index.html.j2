@@ -1,0 +1,46 @@
+{% extends "portal/base.html.j2" %}
+{% block content %}
+<h2>Your jobs</h2>
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
+{% if jobs %}
+<table>
+  <thead><tr><th>Job</th><th>Parcel</th><th>State</th><th>Updated</th></tr></thead>
+  <tbody>
+  {% for j in jobs %}
+    <tr>
+      <td><a href="/portal/jobs/{{ j.id }}?account={{ account }}">{{ j.id[:8] }}</a></td>
+      <td>{{ j.resolution.parcel_id if j.resolution else "—" }}</td>
+      <td><span class="badge">{{ j.state }}</span></td>
+      <td>{{ j.updated_at }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p>No jobs yet.</p>
+{% endif %}
+
+<h2>New screening request</h2>
+<form method="post" action="/portal/jobs?account={{ account }}">
+  <fieldset>
+    <label>Kind
+      <select name="kind">
+        <option value="address">Street address</option>
+        <option value="parcel_id">Parcel ID</option>
+        <option value="geometry">Geometry (WKT)</option>
+      </select>
+    </label>
+  </fieldset>
+  <fieldset>
+    <label>Address <input name="address" type="text"></label>
+    <label>Unit <input name="unit" type="text"></label>
+  </fieldset>
+  <fieldset>
+    <label>Parcel ID <input name="parcel_id" type="text"></label>
+  </fieldset>
+  <fieldset>
+    <label>Geometry WKT <input name="geometry_wkt" type="text"></label>
+  </fieldset>
+  <button type="submit">Submit</button>
+</form>
+{% endblock %}

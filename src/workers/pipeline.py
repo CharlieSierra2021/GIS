@@ -66,6 +66,10 @@ class JobRunner:
         return self._store
 
     @property
+    def registry(self):
+        return self._registry
+
+    @property
     def audit(self):
         return self._audit
 

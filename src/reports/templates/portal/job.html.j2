@@ -1,0 +1,76 @@
+{% extends "portal/base.html.j2" %}
+{% block content %}
+<p><a href="/portal?account={{ account }}">&larr; all jobs</a></p>
+<h2>Job {{ job.id[:8] }} <span class="badge">{{ job.state }}</span></h2>
+
+{% if job.error %}<p class="error">{{ job.error }}</p>{% endif %}
+
+<h3>Timeline</h3>
+<ol>
+{% for t in job.transitions %}
+  <li>{{ t.from_state }} &rarr; {{ t.to_state }} at {{ t.at }}{% if t.note %} — {{ t.note }}{% endif %}</li>
+{% endfor %}
+</ol>
+
+{% if job.state == JobState.AWAITING_CUSTOMER_INPUT and candidates %}
+  {% if job.resolution.disclosure %}<p class="banner">{{ job.resolution.disclosure }}</p>{% endif %}
+  <h3>Select a parcel</h3>
+  <table>
+    <thead><tr><th>Parcel ID</th><th>Situs</th><th>Unit</th><th>Evidence</th><th></th></tr></thead>
+    <tbody>
+    {% for c in candidates %}
+      <tr>
+        <td>{{ c.parcel_id }}</td>
+        <td>{{ c.situs_address or "—" }}</td>
+        <td>{{ c.unit or "—" }}</td>
+        <td>{{ c.evidence | join(", ") }}</td>
+        <td>
+          <form method="post" action="/portal/jobs/{{ job.id }}/select?account={{ account }}">
+            <input type="hidden" name="parcel_id" value="{{ c.parcel_id }}">
+            <button type="submit">Select</button>
+          </form>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+{% endif %}
+
+{% if job.state == JobState.PUBLISHED and job.report %}
+<p>
+  <a href="/jobs/{{ job.id }}/report">Screening report</a> &middot;
+  <a href="/jobs/{{ job.id }}/manifest">Manifest (JSON)</a>
+</p>
+{% endif %}
+
+{% if imagery == "denied" %}
+<div class="banner">Aerial imagery not licensed for display.</div>
+{% endif %}
+<div id="map"></div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  var map = L.map("map").setView([29.0, -81.0], 13);
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution: "&copy; OpenStreetMap contributors"
+  }).addTo(map);
+  var styles = {
+    parcel: { color: "#0033cc", weight: 3 },
+    candidate: { color: "#cc6600", weight: 2, dashArray: "6 4" },
+    evidence: { color: "#228833", weight: 2 }
+  };
+  fetch("/portal/jobs/{{ job.id }}/layers.geojson?account={{ account }}")
+    .then(function (r) { return r.json(); })
+    .then(function (geojson) {
+      var layer = L.geoJSON(geojson, {
+        style: function (f) {
+          return styles[(f.properties && f.properties.layer) || "evidence"];
+        }
+      }).addTo(map);
+      if (layer.getLayers().length) {
+        map.fitBounds(layer.getBounds());
+      }
+    });
+});
+</script>
+{% endblock %}
