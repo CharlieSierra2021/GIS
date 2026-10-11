@@ -32,6 +32,7 @@ class EvidenceFetcher(Protocol):
         parcel_wkt: str,
         spatial_rel: str,
         buffer_m: float | None,
+        authority_id: str | None = None,
     ) -> FeaturePage:
         """Fetch features for one dataset; raises ConnectorError on failure."""
         ...
@@ -101,7 +102,11 @@ def screen(ctx: ScreeningContext, profile: Profile, fetcher: EvidenceFetcher) ->
 
         try:
             page = fetcher.fetch(
-                ds_id, ctx.parcel_wkt, spec.spatial_rel, spec.buffer_m
+                ds_id,
+                ctx.parcel_wkt,
+                spec.spatial_rel,
+                spec.buffer_m,
+                ctx.authority_id if spec.jurisdiction_dependent else None,
             )
         except ConnectorError as exc:
             reason = f"{exc.failure_class}: {exc.detail}"

@@ -44,12 +44,20 @@ class StubFetcher:
         self.pages = pages
         self.calls: list[str] = []
 
-    def fetch(self, dataset_id, parcel_wkt, spatial_rel, buffer_m) -> FeaturePage:
-        self.calls.append(dataset_id)
+    def fetch(
+        self, dataset_id, parcel_wkt, spatial_rel, buffer_m, authority_id=None
+    ) -> FeaturePage:
+        self.calls.append((dataset_id, authority_id))
         result = self.pages[dataset_id]
         if isinstance(result, ConnectorError):
             raise result
         return result
+
+    def called(self, dataset_id: str) -> bool:
+        return any(ds == dataset_id for ds, _ in self.calls)
+
+    def authority_for(self, dataset_id: str) -> str | None:
+        return next(a for ds, a in self.calls if ds == dataset_id)
 
 
 def full_pages() -> dict:

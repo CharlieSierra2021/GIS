@@ -1,0 +1,48 @@
+{
+  "objectIdFieldName": "OBJECTID",
+  "spatialReference": { "wkid": 4326 },
+  "features": [
+    {
+      "attributes": { "OBJECTID": 201, "PARID": "P-001", "SITUS": "123 MAIN ST", "UNIT": null },
+      "geometry": {
+        "rings": [
+          [
+            [-81.05, 29.20],
+            [-81.04, 29.20],
+            [-81.04, 29.21],
+            [-81.05, 29.21],
+            [-81.05, 29.20]
+          ]
+        ]
+      }
+    },
+    {
+      "attributes": { "OBJECTID": 202, "PARID": "C-101", "SITUS": "500 OCEAN BLVD", "UNIT": "101" },
+      "geometry": {
+        "rings": [
+          [
+            [-81.00, 29.30],
+            [-80.99, 29.30],
+            [-80.99, 29.31],
+            [-81.00, 29.31],
+            [-81.00, 29.30]
+          ]
+        ]
+      }
+    },
+    {
+      "attributes": { "OBJECTID": 203, "PARID": "C-102", "SITUS": "500 OCEAN BLVD", "UNIT": "102" },
+      "geometry": {
+        "rings": [
+          [
+            [-81.00, 29.30],
+            [-80.99, 29.30],
+            [-80.99, 29.31],
+            [-81.00, 29.31],
+            [-81.00, 29.30]
+          ]
+        ]
+      }
+    }
+  ]
+}

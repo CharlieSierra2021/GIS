@@ -22,3 +22,14 @@ def approx_distance_m(a: BaseGeometry, b: BaseGeometry) -> float:
     a_m = affinity.scale(a, xfact=xfact, yfact=_M_PER_DEG_LAT, origin=(0, 0))
     b_m = affinity.scale(b, xfact=xfact, yfact=_M_PER_DEG_LAT, origin=(0, 0))
     return a_m.distance(b_m)
+
+
+def buffer_approx(geom: BaseGeometry, metres: float) -> BaseGeometry:
+    """Approximate a metric buffer on a WGS84 geometry (equirectangular)."""
+    lat = geom.centroid.y
+    xfact = _M_PER_DEG_LAT * math.cos(math.radians(lat))
+    scaled = affinity.scale(geom, xfact=xfact, yfact=_M_PER_DEG_LAT, origin=(0, 0))
+    buffered = scaled.buffer(metres)
+    return affinity.scale(
+        buffered, xfact=1.0 / xfact, yfact=1.0 / _M_PER_DEG_LAT, origin=(0, 0)
+    )

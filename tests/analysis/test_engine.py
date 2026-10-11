@@ -71,7 +71,7 @@ def test_null_query_right_denies_before_fetch() -> None:
     permits = _by_area(result, "permits")
     assert permits.status == FindingStatus.NOT_ASSESSED
     assert "registry denies query for permits" in permits.disclosure
-    assert "permits" not in fetcher.calls
+    assert not fetcher.called("permits")
 
 
 def test_unresolved_authority_withholds_land_use(granted_registry) -> None:
@@ -80,8 +80,8 @@ def test_unresolved_authority_withholds_land_use(granted_registry) -> None:
     land_use = _by_area(result, "land_use")
     assert land_use.status == FindingStatus.NOT_ASSESSED
     assert "REQ-JUR-03" in land_use.disclosure
-    assert "county_flu" not in fetcher.calls
-    assert "mun_flu" not in fetcher.calls
+    assert not fetcher.called("county_flu")
+    assert not fetcher.called("mun_flu")
 
 
 def test_municipal_authority_uses_mun_flu(granted_registry) -> None:
@@ -90,8 +90,9 @@ def test_municipal_authority_uses_mun_flu(granted_registry) -> None:
     land_use = _by_area(result, "land_use")
     assert land_use.status == FindingStatus.PRESENT
     assert "City of DeLand" in land_use.statement
-    assert "mun_flu" in fetcher.calls
-    assert "county_flu" not in fetcher.calls
+    assert fetcher.called("mun_flu")
+    assert fetcher.authority_for("mun_flu") == "deland"
+    assert not fetcher.called("county_flu")
     assert land_use.citation.dataset_id == "mun_flu"
 
 
@@ -103,8 +104,9 @@ def test_county_authority_uses_county_flu(granted_registry) -> None:
         fetcher,
     )
     assert _by_area(result, "land_use").status == FindingStatus.PRESENT
-    assert "county_flu" in fetcher.calls
-    assert "mun_flu" not in fetcher.calls
+    assert fetcher.called("county_flu")
+    assert fetcher.authority_for("county_flu") == "volusia_uninc"
+    assert not fetcher.called("mun_flu")
 
 
 def test_mun_flu_failure_discloses_authority(granted_registry) -> None:

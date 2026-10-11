@@ -13,6 +13,8 @@ from connectors.contract import (
     ServiceDescriptor,
     compute_fingerprint,
 )
+from connectors.evidence import RegistryEvidenceFetcher
+from connectors.factory import ConnectorFactory
 from connectors.registry import (
     Dataset,
     Permissions,
@@ -27,6 +29,7 @@ __all__ = [
     "Capabilities",
     "Connector",
     "ConnectorError",
+    "ConnectorFactory",
     "Dataset",
     "FailureClass",
     "Feature",
@@ -39,6 +42,7 @@ __all__ = [
     "Provider",
     "QueryRequest",
     "Registry",
+    "RegistryEvidenceFetcher",
     "ServiceDescriptor",
     "compute_fingerprint",
     "load_registry",

@@ -1,3 +1,4 @@
+from resolution.arcgis_source import ArcGISParcelSource, ParcelFieldMap
 from resolution.intake import IntakeKind, IntakeRequest, NormalizedAddress, normalize_address
 from resolution.models import (
     ConfidenceClass,
@@ -10,6 +11,7 @@ from resolution.models import (
 from resolution.resolver import ParcelResolver, ParcelSource
 
 __all__ = [
+    "ArcGISParcelSource",
     "ConfidenceClass",
     "Evidence",
     "EvidenceKind",
@@ -17,6 +19,7 @@ __all__ = [
     "IntakeRequest",
     "NormalizedAddress",
     "ParcelCandidate",
+    "ParcelFieldMap",
     "ParcelResolver",
     "ParcelSource",
     "ResolutionDecision",
