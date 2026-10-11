@@ -5,6 +5,7 @@ See docs/ICD-FL-001.md §11 for the normative rights matrix and §19 for the
 registry schema.
 """
 
+import os
 from pathlib import Path
 from typing import Literal
 
@@ -193,6 +194,6 @@ class Registry(BaseModel):
 
 def load_registry(path: Path | None = None) -> Registry:
     """Load and validate a registry YAML file (default: registry/volusia.yaml)."""
-    path = path or DEFAULT_REGISTRY_PATH
+    path = path if path is not None else Path(os.environ.get("PI_REGISTRY_PATH") or DEFAULT_REGISTRY_PATH)
     data = yaml.safe_load(path.read_text(encoding="utf-8"))
     return Registry.model_validate(data)

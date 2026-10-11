@@ -108,7 +108,26 @@ export DATABASE_URL=sqlite:///./dev.db      # or postgresql+psycopg://...
 alembic upgrade head                        # jobs, audit_events, evidence_artifacts
 ```
 
-Full stack (compose stack is unverified on this machine — no docker locally):
+### Installed-package startup (M14)
+
+A non-editable installation requires an external registry. Set `PI_REGISTRY_PATH` to
+an absolute path to the reviewed `registry/volusia.yaml` before importing or starting
+the API. An explicit `load_registry(path)` argument takes precedence over that environment
+variable; without either, development uses the source-checkout registry. A missing
+configured file fails startup rather than falling back to different permissions.
+
+The Dockerfile sets `PI_REGISTRY_PATH=/app/registry/volusia.yaml` and copies Alembic
+configuration and migrations into the image. Wheels include the screening profile,
+report template, and nested portal templates; the registry remains external so operators
+can manage the activation's rights independently of the application wheel.
+
+`pytest -q tests/api/test_health.py tests/connectors/test_registry.py` builds and installs
+a wheel into a temporary directory, then checks `/health`, `/portal`, and template/profile
+loading from outside the checkout. The wheel build uses pip build isolation and may need
+package-index access for the existing setuptools build requirement. This is not a Docker,
+PostgreSQL, live-provider, browser-JavaScript, or authentication acceptance test.
+
+Full stack (compose stack remains unverified on this machine):
 
 ```bash
 cp deploy/env.example .env        # fill in local values; secrets go to a secrets manager
@@ -160,7 +179,8 @@ detects schema drift, and writes a registry-ready fixture record to
 | Customer portal (Leaflet, candidate picker, rights-filtered layers) | `api/portal.py` | done — display-denied geometry never leaves the server |
 | `file_download` + GeoJSON ingest, `records_request` workflow | `connectors/filedownload.py`, `records_request.py` | done — 3 of 4 access types; `document_retrieval` pending; EPSG:3087 via pyproj |
 | PostGIS geometry columns, real auth, ortho tile layer, PDF | — | pending |
-| Live endpoints + rights (P0 procurement) | `registry/volusia.yaml` | pending — every `display`/`report` cell still `null` |
+| Installed-wheel startup and resources (M14) | `Dockerfile`, `connectors/registry.py`, package metadata | wheel smoke-tested outside checkout; Docker/Compose still unverified |
+| Live endpoints + rights (P0 procurement) | `registry/volusia.yaml` | pending — report rights remain unknown; some seed display permissions are true and require provenance review before live use |
 
 Test baseline: see the latest `feat(M*)` commit message (`git log --grep="Pick-up point" -1`).
 See `CONTRIBUTING.md` for the task board and pick-up protocol.

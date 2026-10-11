@@ -72,6 +72,23 @@ def test_bogus_task_name_is_integrity_problem(tmp_path: Path) -> None:
     assert any("not_a_task" in p for p in problems)
 
 
+def test_registry_environment_path(monkeypatch, tmp_path: Path) -> None:
+    data = yaml.safe_load(REGISTRY_PATH.read_text(encoding="utf-8"))
+    data["registry_version"] = "environment-test"
+    configured = tmp_path / "configured.yaml"
+    configured.write_text(yaml.safe_dump(data), encoding="utf-8")
+    monkeypatch.setenv("PI_REGISTRY_PATH", str(configured))
+    assert load_registry().registry_version == "environment-test"
+    expected = yaml.safe_load(REGISTRY_PATH.read_text(encoding="utf-8"))["registry_version"]
+    assert load_registry(REGISTRY_PATH).registry_version == expected
+
+
+def test_missing_configured_registry_does_not_fall_back(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("PI_REGISTRY_PATH", str(tmp_path / "missing.yaml"))
+    with pytest.raises(FileNotFoundError):
+        load_registry()
+
+
 def test_extra_dataset_field_fails_validation() -> None:
     data = yaml.safe_load(REGISTRY_PATH.read_text(encoding="utf-8"))
     dataset_data = data["datasets"][0]

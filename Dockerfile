@@ -5,6 +5,10 @@ WORKDIR /app
 COPY pyproject.toml README.md ./
 COPY src ./src
 COPY registry ./registry
+COPY alembic.ini ./
+COPY migrations ./migrations
+
+ENV PI_REGISTRY_PATH=/app/registry/volusia.yaml
 
 RUN pip install --no-cache-dir .
 

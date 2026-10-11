@@ -238,3 +238,15 @@ in ICD §16.
 
 No requirement is accepted on inspection alone; every SHALL maps to at least one test or
 gate in ICD §16.
+
+### 5.1 Installed-package deployment regression (M14)
+
+`tests/api/test_health.py::test_installed_wheel_starts_outside_checkout` builds a
+non-editable wheel, checks the profile and report/portal template resources, installs
+into a temporary target, and exercises API health and portal rendering outside the
+source tree. The registry is supplied explicitly using `PI_REGISTRY_PATH`.
+
+`tests/connectors/test_registry.py` verifies configuration precedence and refusal to
+fall back when the configured registry is missing. No rights values are changed by
+this milestone. The Dockerfile supplies the registry path and copies migrations, but
+Docker/Compose execution and PostgreSQL migration acceptance remain separate gates.
