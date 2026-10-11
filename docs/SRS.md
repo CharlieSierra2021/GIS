@@ -263,3 +263,17 @@ These tests use the runner's in-memory registry, not a live registry refresh mec
 They do not verify rights on raw job/audit/evidence JSON, stored report downloads,
 parcel/candidate geometry, or file-download retention. Those paths remain release-review
 items alongside real authentication, independently of the fixture acceptance suite.
+
+### 5.3 Portal recovery and sample-data disclosure (M16)
+
+`tests/api/test_portal.py` exercises REQ-PTL-01/02 and the §1.3 product boundary:
+explicit sample-data labeling, no-match recovery without negative property claims,
+retained input on retries and validation failures, account-isolated retry/report paths,
+and suppression of empty or synthetic maps. Backend job states and evidence remain
+unchanged; the portal uses descriptive status labels instead of exposing an internal
+failure code as the main customer message. Report links require a published job and
+current report rights on cited findings; this does not certify every legacy API route.
+
+The sample launcher supports `--port` and passes `demo_mode=True` to the app factory.
+A non-demo app does not claim sample-only coverage. Live parcel resolution, real
+identity/authentication and complete rights enforcement remain separate milestones.

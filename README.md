@@ -100,6 +100,27 @@ python scripts/dev_seed.py        # API + portal on :8010 with two seeded jobs (
 uvicorn api.main:app --reload     # bare API; in-memory stores unless DATABASE_URL is set
 ```
 
+### Portal experience and sample coverage (M16)
+
+`python scripts/dev_seed.py` explicitly enables sample-data mode. If another instance
+is running, use `python scripts/dev_seed.py --port 8011` and open
+`http://localhost:8011/portal?account=acct-1`; this leaves the original in-memory session
+untouched. Restarting a demo process discards its in-memory requests.
+
+The workspace labels sample coverage before intake. Try `123 Main St` for screening or
+`500 Ocean Blvd` for parcel/unit selection. Other real-world addresses, including
+`436 Pleasant Oaks Trail`, are not evidence of missing properties when the sample
+source cannot match them. The recovery page preserves input for an edit or parcel-ID
+retry and makes no screening conclusions. Synthetic demo geometry is not plotted as
+real parcel boundaries. The non-demo factory defaults to `demo_mode=False` and uses
+coverage-neutral recovery wording.
+
+The responsive portal includes meaningful statuses, screening findings subject to
+report permissions, publication actions, account-scoped browser report/manifest links,
+and a collapsed technical timeline. Invalid forms retain escaped input. An unresolved
+property no longer gets an empty map or an unrelated imagery warning. This milestone
+improves the workflow; it does not enable live address resolution or production auth.
+
 Persistence (SQLite locally, Postgres in deploy — geometry is WKT text until the
 PostGIS spatial-store milestone):
 

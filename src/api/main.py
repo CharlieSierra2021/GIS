@@ -9,7 +9,7 @@ from workers import runtime
 from workers.pipeline import JobRunner
 
 
-def create_app(runner: JobRunner | None = None) -> FastAPI:
+def create_app(runner: JobRunner | None = None, *, demo_mode: bool = False) -> FastAPI:
     app = FastAPI(title="property-intel")
     registry = load_registry()
 
@@ -20,7 +20,7 @@ def create_app(runner: JobRunner | None = None) -> FastAPI:
         build_router(runner, runner.store, runner.audit, runner.evidence_store)
     )
     app.include_router(
-        build_portal_router(runner, runner.store, runner.registry)
+        build_portal_router(runner, runner.store, runner.registry, demo_mode=demo_mode)
     )
 
     @app.get("/health")

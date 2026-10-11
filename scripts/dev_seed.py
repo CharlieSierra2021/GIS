@@ -13,6 +13,7 @@ Usage::
 Then browse:  http://localhost:8010/portal?account=acct-1
 """
 
+import argparse
 import sys
 from pathlib import Path
 
@@ -37,7 +38,7 @@ from workers.storage import InMemoryEvidenceStore
 ACCOUNT = "acct-1"
 
 
-def main() -> None:
+def main(port: int = 8010) -> None:
     registry = publishable_registry()
     runner = JobRunner(
         store=InMemoryJobStore(),
@@ -65,13 +66,17 @@ def main() -> None:
     )
     print(f"published job:  {published.id}")
     print(f"awaiting job:   {awaiting.id}")
-    print(f"portal:         http://localhost:8010/portal?account={ACCOUNT}")
+    print(f"portal:         http://localhost:{port}/portal?account={ACCOUNT}")
 
     runtime.set_runner(runner)
     import uvicorn
 
-    uvicorn.run("api.main:app", host="127.0.0.1", port=8010)
+    from api.main import create_app
+
+    uvicorn.run(create_app(runner, demo_mode=True), host="127.0.0.1", port=port)
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--port", type=int, default=8010)
+    main(parser.parse_args().port)

@@ -1,46 +1,61 @@
 {% extends "portal/base.html.j2" %}
 {% block content %}
-<h2>Your jobs</h2>
-{% if error %}<p class="error">{{ error }}</p>{% endif %}
-{% if jobs %}
-<table>
-  <thead><tr><th>Job</th><th>Parcel</th><th>State</th><th>Updated</th></tr></thead>
-  <tbody>
-  {% for j in jobs %}
-    <tr>
-      <td><a href="/portal/jobs/{{ j.id }}?account={{ account }}">{{ j.id[:8] }}</a></td>
-      <td>{{ j.resolution.parcel_id if j.resolution else "—" }}</td>
-      <td><span class="badge">{{ j.state }}</span></td>
-      <td>{{ j.updated_at }}</td>
-    </tr>
-  {% endfor %}
-  </tbody>
-</table>
+<section class="hero">
+  <div><p class="eyebrow">Property intelligence / Workspace</p><h1>A clearer view of your property.</h1><p class="sub">Resolve a parcel, review the evidence, and understand what still needs a closer look.</p></div>
+</section>
+{% if demo_mode %}
+<div class="notice" role="status"><span class="notice-label">DEMO COVERAGE</span><p><strong>Live address lookup is not connected.</strong><br>This workspace contains sample parcels only. Try an example below to explore screening and parcel selection. Real addresses will not resolve unless they are in the sample dataset.</p></div>
 {% else %}
-<p>No jobs yet.</p>
+<div class="notice"><span class="notice-label">DATA COVERAGE</span><p>Results depend on the configured parcel source and permitted datasets. This development workspace does not guarantee live or complete coverage.</p></div>
 {% endif %}
-
-<h2>New screening request</h2>
-<form method="post" action="/portal/jobs?account={{ account }}">
-  <fieldset>
-    <label>Kind
-      <select name="kind">
-        <option value="address">Street address</option>
-        <option value="parcel_id">Parcel ID</option>
-        <option value="geometry">Geometry (WKT)</option>
-      </select>
-    </label>
-  </fieldset>
-  <fieldset>
-    <label>Address <input name="address" type="text"></label>
-    <label>Unit <input name="unit" type="text"></label>
-  </fieldset>
-  <fieldset>
-    <label>Parcel ID <input name="parcel_id" type="text"></label>
-  </fieldset>
-  <fieldset>
-    <label>Geometry WKT <input name="geometry_wkt" type="text"></label>
-  </fieldset>
-  <button type="submit">Submit</button>
-</form>
+<div class="grid">
+  <section class="card" id="new-search" aria-labelledby="search-heading">
+    <div class="card-head"><div><p class="eyebrow">Start with a property</p><h2 id="search-heading">New screening request</h2><p class="muted small">Choose a search type and provide the property details.</p></div><span class="badge">01 / Identify</span></div>
+    {% if error %}<div class="error" role="alert">{{ error }}</div>{% endif %}
+    <form method="post" action="/portal/jobs?account={{ account | urlencode }}" id="intake-form">
+      <div class="field"><label for="kind">Search by</label><select id="kind" name="kind">
+        {% for key,label in [('address','Street address'),('parcel_id','Parcel ID'),('geometry','Geometry (WKT)')] %}<option value="{{ key }}" {% if (values.get('kind') or 'address') == key %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select></div>
+      <fieldset data-kind="address"><div class="field-row"><div class="field"><label for="address">Street address</label><input id="address" name="address" autocomplete="street-address" value="{{ values.get('address') or '' }}" placeholder="{{ 'Try 123 Main St' if demo_mode else 'Enter the property street address' }}"><span class="hint">{% if demo_mode %}Sample address only; not a nationwide address search.{% else %}Use the address listed by the local property appraiser.{% endif %}</span></div><div class="field"><label for="unit">Unit <span class="muted">(optional)</span></label><input id="unit" name="unit" value="{{ values.get('unit') or '' }}" placeholder="e.g. 102"></div></div></fieldset>
+      <fieldset data-kind="parcel_id"><div class="field"><label for="parcel_id">County parcel ID</label><input id="parcel_id" name="parcel_id" value="{{ values.get('parcel_id') or '' }}" placeholder="{{ 'Try P-001' if demo_mode else 'Enter the authoritative parcel identifier' }}"><span class="hint">Parcel identity is more precise than a street-address match.</span></div></fieldset>
+      <fieldset data-kind="geometry"><div class="field"><label for="geometry_wkt">Geometry in WKT</label><textarea id="geometry_wkt" name="geometry_wkt" placeholder="POLYGON ((longitude latitude, ...))">{{ values.get('geometry_wkt') or '' }}</textarea><span class="hint">Coordinates must be longitude / latitude. A point requires parcel confirmation.</span></div></fieldset>
+      <button type="submit" class="button full">Find property &amp; start screening</button>
+      <p class="hint">{% if demo_mode %}Sample evidence is illustrative, not a property assessment.{% else %}Ambiguous matches are returned for your selection. We never choose silently.{% endif %}</p>
+    </form>
+  </section>
+  <aside>
+    {% if demo_mode %}
+    <section class="card"><p class="eyebrow">Explore the workflow</p><h2>Start with a sample</h2><div class="sample"><a href="/portal?account={{ account | urlencode }}&amp;example={{ examples[0] | urlencode }}#new-search">{{ examples[0] }}</a><p>A single parcel with a nine-area screening summary.</p></div><div class="sample"><a href="/portal?account={{ account | urlencode }}&amp;example={{ examples[1] | urlencode }}#new-search">{{ examples[1] }}</a><p>A shared address. Select unit 101 or 102 to confirm the right parcel.</p></div></section>
+    {% endif %}
+    <section class="card"><p class="eyebrow">What to expect</p><h3>Identity before conclusions.</h3><p class="muted small">A confirmed parcel comes first. Source availability, data vintage and publication rights are checked before a report can be released.</p><dl class="facts"><div><dt>01 &nbsp; Identify</dt><dd>Confirm the property</dd></div><div><dt>02 &nbsp; Assess</dt><dd>Review source-backed indicators</dd></div><div><dt>03 &nbsp; Understand</dt><dd>See findings and limitations together</dd></div></dl></section>
+  </aside>
+</div>
+<section aria-labelledby="activity-heading">
+  <div class="metrics"><div class="metric"><strong>{{ jobs | length }}</strong><span>Total requests</span></div><div class="metric"><strong>{{ jobs | selectattr('state', 'equalto', 'published') | list | length }}</strong><span>Reports ready</span></div><div class="metric"><strong>{{ jobs | selectattr('state', 'equalto', 'awaiting_customer_input') | list | length }}</strong><span>Awaiting your selection</span></div></div>
+  <div class="card"><div class="card-head"><div><p class="eyebrow">Your workspace</p><h2 id="activity-heading">Recent property requests</h2></div><span class="muted small">Times shown in UTC</span></div>
+  {% if jobs %}
+  <div class="table-wrap"><table><thead><tr><th scope="col">Property</th><th scope="col">Status</th><th scope="col">Last activity</th><th scope="col">Request</th></tr></thead><tbody>
+  {% for j in jobs %}<tr><td><a href="/portal/jobs/{{ j.id }}?account={{ account | urlencode }}">{{ j.intake.address or j.intake.parcel_id or 'Geometry search' }}</a><span class="small muted">{% if j.resolution and j.resolution.parcel_id %}Parcel {{ j.resolution.parcel_id }}{% else %}Parcel not yet confirmed{% endif %}</span></td><td><span class="badge {{ j.state }}">{{ status_label(j) }}</span></td><td class="small">{{ j.updated_at.strftime('%b %d, %Y · %H:%M') }} UTC</td><td class="muted small">{{ j.id[:8] }}</td></tr>{% endfor %}
+  </tbody></table></div>
+  {% else %}<div class="empty"><h3>Your first property starts here.</h3><p>Submit a request above. Its status, findings and next steps will appear in this workspace.</p></div>{% endif %}
+  </div>
+</section>
+<script>
+(() => {
+  const kind = document.getElementById('kind');
+  const form = document.getElementById('intake-form');
+  function updateFields() {
+    form.querySelectorAll('[data-kind]').forEach(group => {
+      const active = group.dataset.kind === kind.value;
+      group.hidden = !active;
+      group.querySelectorAll('input,textarea').forEach(input => {
+        input.disabled = !active;
+        input.required = active && input.name !== 'unit';
+      });
+    });
+  }
+  kind.addEventListener('change', updateFields);
+  updateFields();
+})();
+</script>
 {% endblock %}

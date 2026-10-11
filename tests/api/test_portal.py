@@ -201,6 +201,85 @@ def test_invalid_form_rerenders_with_error(client: TestClient) -> None:
     assert "Traceback" not in resp.text
 
 
+def test_demo_workspace_discloses_coverage_and_examples() -> None:
+    client = TestClient(create_app(_runner(), demo_mode=True))
+    page = client.get("/portal", headers=H).text
+    assert "Sample data workspace" in page
+    assert "Live address lookup is not connected" in page
+    assert "123 Main St" in page
+    assert "500 Ocean Blvd" in page
+
+
+def test_unmatched_demo_address_has_recovery_not_empty_map() -> None:
+    client = TestClient(create_app(_runner(), demo_mode=True))
+    job_id = _submit(client, {"kind": "address", "address": "436 Pleasant Oaks Trail"})
+    page = client.get(f"/portal/jobs/{job_id}", headers=H).text
+    assert "436 Pleasant Oaks Trail" in page
+    assert "Address not in the sample dataset" in page
+    assert "does not mean the property does not exist" in page
+    assert "Edit search" in page
+    assert "Try parcel ID" in page
+    assert '<div id="map"' not in page
+    assert "Aerial imagery not licensed for display." not in page
+    retry = client.get(f"/portal?retry={job_id}", headers=H)
+    assert retry.status_code == 200
+    assert 'value="436 Pleasant Oaks Trail"' in retry.text
+    assert client.get(f"/portal?retry={job_id}", headers={"X-Account-Id": "other"}).status_code == 404
+
+
+def test_unmatched_address_outside_demo_is_not_mislabeled(client) -> None:
+    job_id = _submit(client, {"kind": "address", "address": "436 Pleasant Oaks Trail"})
+    page = client.get(f"/portal/jobs/{job_id}", headers=H).text
+    assert "We could not confirm this property" in page
+    assert "Address not in the sample dataset" not in page
+    assert '<div id="map"' not in page
+
+
+def test_invalid_form_preserves_input_and_escapes_it(client) -> None:
+    response = client.post(
+        "/portal/jobs", headers=H,
+        data={"kind": "parcel_id", "address": '<script>alert("x")</script>'},
+    )
+    assert response.status_code == 400
+    assert "Check your property details" in response.text
+    assert "&lt;script&gt;" in response.text
+    assert '<script>alert("x")</script>' not in response.text
+
+
+def test_report_opens_via_portal_without_api_header(client) -> None:
+    job_id = _submit(client, {"kind": "address", "address": "123 Main St"})
+    response = client.post(
+        f"/portal/jobs/{job_id}/publish?account=acct-1", follow_redirects=False,
+    )
+    assert response.status_code == 303
+    report = client.get(f"/portal/jobs/{job_id}/report?account=acct-1")
+    assert report.status_code == 200
+    assert "text/html" in report.headers["content-type"]
+    assert "SCREENING REPORT" in report.text
+    assert client.get(f"/portal/jobs/{job_id}/report?account=other").status_code == 404
+    assert client.get(f"/portal/jobs/{job_id}/manifest?account=acct-1").status_code == 200
+
+
+def test_portal_report_requires_publication_and_current_report_rights(client, runner) -> None:
+    job_id = _submit(client, {"kind": "address", "address": "123 Main St"})
+    assert client.get(f"/portal/jobs/{job_id}/report", headers=H).status_code == 404
+    assert client.post(
+        f"/portal/jobs/{job_id}/publish", headers=H, follow_redirects=False
+    ).status_code == 303
+    runner.registry.dataset("nfhl_flood").permissions.report = None
+    assert client.get(f"/portal/jobs/{job_id}/report", headers=H).status_code == 403
+    assert client.get(f"/portal/jobs/{job_id}/manifest", headers=H).status_code == 403
+
+
+def test_demo_geometry_is_not_presented_as_a_real_location() -> None:
+    client = TestClient(create_app(_runner(), demo_mode=True))
+    job_id = _submit(client, {"kind": "address", "address": "123 Main St"})
+    page = client.get(f"/portal/jobs/{job_id}", headers=H).text
+    assert "Illustrative geometry" in page
+    assert '<div id="map"' not in page
+    assert "Screening findings" in page
+
+
 def test_cross_account_job_page_is_404(client: TestClient) -> None:
     job_id = _submit(client, {"kind": "parcel_id", "parcel_id": "P-001"})
     resp = client.get(

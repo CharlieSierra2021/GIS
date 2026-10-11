@@ -77,6 +77,24 @@ gap remains; blank = not started.
 - Fixture tests passing is not equivalent to closing launch gates or proving remote CI
   passed. Record local, hosted CI, container and live-source results separately.
 
+### M16 portal experience follow-up
+
+The portal now distinguishes sample-source coverage from a property that does not
+exist, retains input for account-scoped retries, and surfaces findings/next actions
+instead of a technical error page. The dev seed explicitly enables `demo_mode=True`;
+`--port` can run an improved preview without discarding an existing demo session.
+
+Verification: `pytest -q tests/api/test_portal.py tests/api/test_health.py` covers demo
+labels, unresolved recovery, hidden empty/synthetic maps, retained/escaped input,
+account isolation and browser report links. A local Chromium smoke check additionally
+exercised form switching, recovery/retry, report navigation, desktop/mobile layouts
+and console errors; this browser check is not yet part of CI.
+
+Next functional milestone: confirm the target property's county/state, validate an
+authoritative parcel endpoint and its access permissions, then wire the live parcel
+source into a non-demo runner. Do not substitute a geocoded point for parcel identity
+or present sample findings as live results. Real authentication remains a launch gate.
+
 ### Pick-up protocol
 
 Every milestone commit on `main` ends with a **Pick-up point** paragraph naming the next

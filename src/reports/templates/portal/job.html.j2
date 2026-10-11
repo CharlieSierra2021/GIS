@@ -1,76 +1,87 @@
 {% extends "portal/base.html.j2" %}
+{% block title %}{{ job.intake.address or job.intake.parcel_id or 'Property request' }}{% endblock %}
 {% block content %}
-<p><a href="/portal?account={{ account }}">&larr; all jobs</a></p>
-<h2>Job {{ job.id[:8] }} <span class="badge">{{ job.state }}</span></h2>
-
-{% if job.error %}<p class="error">{{ job.error }}</p>{% endif %}
-
-<h3>Timeline</h3>
-<ol>
-{% for t in job.transitions %}
-  <li>{{ t.from_state }} &rarr; {{ t.to_state }} at {{ t.at }}{% if t.note %} — {{ t.note }}{% endif %}</li>
-{% endfor %}
+<p class="small"><a href="/portal?account={{ account | urlencode }}">&larr; All property requests</a></p>
+<section class="hero"><div><p class="eyebrow">Property overview{% if demo_mode %} / Sample data{% endif %}</p><h1>{{ job.intake.address or job.intake.parcel_id or 'Geometry search' }}</h1><p class="muted small">Request {{ job.id[:8] }} &middot; Updated {{ job.updated_at.strftime('%b %d, %Y · %H:%M') }} UTC</p></div><span class="badge {{ job.state }}">{{ status_label(job) }}</span></section>
+{% if demo_mode %}<div class="notice"><span class="notice-label">SAMPLE DATA</span><p><strong>Live address lookup is not connected.</strong> This workspace demonstrates the workflow with a limited set of sample parcels and illustrative evidence.</p></div>{% endif %}
+<ol class="steps" aria-label="Screening progress">
+  <li class="{{ 'complete' if job.resolution and job.resolution.parcel_id else '' }}"><strong>01</strong>Confirm property</li>
+  <li class="{{ 'complete' if job.routing and job.routing.status == 'resolved' else '' }}"><strong>02</strong>Identify authority</li>
+  <li class="{{ 'complete' if job.screening else '' }}"><strong>03</strong>Review evidence</li>
+  <li class="{{ 'complete' if job.state == JobState.PUBLISHED else '' }}"><strong>04</strong>Publish report</li>
 </ol>
+<div class="grid">
+  <div>
+    {% if not_found %}
+    <section class="card recovery" aria-labelledby="recovery-title">
+      <p class="eyebrow">A match is needed before we can screen</p>
+      <h2 id="recovery-title">{{ 'Address not in the sample dataset' if demo_mode else 'We could not confirm this property' }}</h2>
+      <p class="sub">We could not match <strong>{{ job.intake.address or job.intake.parcel_id or 'the submitted geometry' }}</strong> to a parcel in the configured source.</p>
+      <p class="muted">This does not mean the property does not exist. No flood, wetland, land-use or other screening conclusions have been made.</p>
+      {% if demo_mode %}<p>Use a sample to explore the app. Searching real properties requires a verified county parcel source and the appropriate data permissions.</p>{% else %}<p>Check the spelling and unit, or use the county parcel ID. If neither resolves, the source coverage and connector configuration need to be verified.</p>{% endif %}
+      <div class="actions"><a class="button" href="/portal?account={{ account | urlencode }}&amp;retry={{ job.id }}#new-search">Edit search</a><a class="button secondary" href="/portal?account={{ account | urlencode }}&amp;retry={{ job.id }}&amp;kind=parcel_id#new-search">Try parcel ID</a></div>
+      {% if demo_mode %}<div class="sample"><p>Working examples</p>{% for example in examples %}<a href="/portal?account={{ account | urlencode }}&amp;example={{ example | urlencode }}#new-search">{{ example }}</a>{% if not loop.last %} &middot; {% endif %}{% endfor %}</div>{% endif %}
+    </section>
+    {% elif job.state == JobState.FAILED %}
+    <section class="card recovery"><p class="eyebrow">Screening interrupted</p><h2>We could not complete this request.</h2><p>No report was published. Review the submitted details or ask an operator to check the request using reference <strong>{{ job.id[:8] }}</strong>.</p><a class="button" href="/portal?account={{ account | urlencode }}&amp;retry={{ job.id }}#new-search">Review search details</a></section>
+    {% endif %}
 
-{% if job.state == JobState.AWAITING_CUSTOMER_INPUT and candidates %}
-  {% if job.resolution.disclosure %}<p class="banner">{{ job.resolution.disclosure }}</p>{% endif %}
-  <h3>Select a parcel</h3>
-  <table>
-    <thead><tr><th>Parcel ID</th><th>Situs</th><th>Unit</th><th>Evidence</th><th></th></tr></thead>
-    <tbody>
-    {% for c in candidates %}
-      <tr>
-        <td>{{ c.parcel_id }}</td>
-        <td>{{ c.situs_address or "—" }}</td>
-        <td>{{ c.unit or "—" }}</td>
-        <td>{{ c.evidence | join(", ") }}</td>
-        <td>
-          <form method="post" action="/portal/jobs/{{ job.id }}/select?account={{ account }}">
-            <input type="hidden" name="parcel_id" value="{{ c.parcel_id }}">
-            <button type="submit">Select</button>
-          </form>
-        </td>
-      </tr>
-    {% endfor %}
-    </tbody>
-  </table>
-{% endif %}
+    {% if job.state == JobState.AWAITING_CUSTOMER_INPUT and candidates %}
+    <section class="card"><p class="eyebrow">Your input is needed</p><h2>Select a parcel</h2><p class="muted">More than one parcel may share this address. Confirm the parcel and unit you intend to screen. No candidate has been selected automatically.</p>
+      <div class="table-wrap"><table><thead><tr><th scope="col">Parcel</th><th scope="col">Address / unit</th><th scope="col">Match evidence</th><th scope="col">Action</th></tr></thead><tbody>
+      {% for c in candidates %}<tr><td><strong>{{ c.parcel_id }}</strong></td><td>{{ c.situs_address or 'Address unavailable' }}<span class="small muted">{{ ('Unit ' ~ c.unit) if c.unit else 'No unit specified' }}</span></td><td class="small">{{ c.evidence | join(', ') | replace('_', ' ') }}</td><td><form method="post" action="/portal/jobs/{{ job.id }}/select?account={{ account | urlencode }}"><input type="hidden" name="parcel_id" value="{{ c.parcel_id }}"><button type="submit">Select</button></form></td></tr>{% endfor %}
+      </tbody></table></div>
+    </section>
+    {% endif %}
 
-{% if job.state == JobState.PUBLISHED and job.report %}
-<p>
-  <a href="/jobs/{{ job.id }}/report">Screening report</a> &middot;
-  <a href="/jobs/{{ job.id }}/manifest">Manifest (JSON)</a>
-</p>
-{% endif %}
+    {% if job.screening %}
+    <section class="card"><div class="card-head"><div><p class="eyebrow">Evidence, not assurances</p><h2>Screening findings</h2><p class="muted small">{{ 'Illustrative results from sample evidence.' if demo_mode else 'Source-backed indicators; not professional determinations.' }}</p></div><span class="badge">{{ findings | length }} shown</span></div>
+      {% if withheld %}<div class="warning">{{ withheld }} finding(s) are withheld because report rights are unknown or denied.</div>{% endif %}
+      {% for finding in findings %}<article class="finding"><div class="row between"><h3>{{ finding.area | replace('_',' ') | title }}</h3><span class="badge">{{ {'present':'Record found','not_found':'No record found','not_assessed':'Not assessed','pending':'Awaiting records'}.get(finding.status, finding.status) }}</span></div><p>{{ finding.statement }}</p>{% if finding.disclosure %}<p class="muted small">{{ finding.disclosure }}</p>{% endif %}{% if finding.citation %}<p class="source">Source: {{ finding.citation.dataset_id }} &middot; Observed: {{ finding.citation.observation_date or 'unknown' }} &middot; Retrieved: {{ finding.citation.retrieved_at.strftime('%b %d, %Y') if finding.citation.retrieved_at else 'unknown' }}</p>{% endif %}</article>{% endfor %}
+      {% if not findings %}<div class="empty"><h3>No publishable findings yet.</h3><p>The source-rights and quality checks must be resolved before evidence can be shown.</p></div>{% endif %}
+    </section>
+    {% endif %}
 
-{% if imagery == "denied" %}
-<div class="banner">Aerial imagery not licensed for display.</div>
-{% endif %}
-<div id="map"></div>
-
+    {% if has_map %}
+    <section class="card"><p class="eyebrow">Spatial context</p><h2>Parcel &amp; evidence map</h2>{% if imagery == 'denied' %}<p class="warning small">Aerial imagery not licensed for display.</p>{% endif %}<div id="map" aria-label="Parcel and permitted evidence layers"></div><p id="map-status" class="map-status" role="status">Loading permitted map layers…</p><noscript><p>The interactive map needs JavaScript. Property details remain available on this page.</p></noscript></section>
+    {% elif demo_mode and not not_found and job.state != JobState.FAILED %}
+    <section class="card"><p class="eyebrow">Map preview</p><h2>Illustrative geometry</h2><p class="muted">The sample parcel shapes are test fixtures, not real property boundaries. They are not plotted on a real-world map to avoid implying a verified location.</p>{% if imagery == 'denied' %}<p class="small muted">Aerial imagery not licensed for display.</p>{% endif %}</section>
+    {% endif %}
+  </div>
+  <aside>
+    <section class="card"><p class="eyebrow">Next step</p>
+    {% if job.state == JobState.PUBLISHED and job.report %}<h2>Your report is ready.</h2><p class="muted small">Read the findings together with source dates, qualifications and licensing disclosures.</p><a class="button full" href="/portal/jobs/{{ job.id }}/report?account={{ account | urlencode }}">Open screening report</a><p class="small" style="margin-top:14px"><a href="/portal/jobs/{{ job.id }}/manifest?account={{ account | urlencode }}">View report manifest (JSON)</a></p>
+    {% elif job.state in [JobState.AUTO_PUBLISH, JobState.QUALIFIED_OUTPUT] %}<h2>Review, then publish.</h2><p class="muted small">The screening has reached a publishable state. Any qualifications remain part of the report.</p><form method="post" action="/portal/jobs/{{ job.id }}/publish?account={{ account | urlencode }}"><button type="submit" class="button full">Create screening report</button></form>
+    {% elif job.state == JobState.AWAITING_CUSTOMER_INPUT %}<h2>Confirm the right parcel.</h2><p class="muted small">Use the address, unit and parcel ID to select a candidate. The screening resumes after your choice.</p>
+    {% elif job.state in [JobState.HUMAN_REVIEW, JobState.BLOCKED] %}<h2>Review required.</h2><p class="muted small">Publication is on hold. An operator needs to resolve the quality or source-rights checks. A held report is not a clean bill of health.</p>
+    {% else %}<h2>Start with verified identity.</h2><p class="muted small">A confirmed parcel is required before any screening result is meaningful. Correct the input or verify source coverage first.</p>{% endif %}
+    </section>
+    <section class="card"><h3>Request details</h3><dl class="facts"><div><dt>Submitted property</dt><dd>{{ job.intake.address or job.intake.parcel_id or 'Geometry (WKT)' }}</dd></div><div><dt>Parcel</dt><dd>{{ job.resolution.parcel_id if job.resolution and job.resolution.parcel_id else 'Not confirmed' }}</dd></div><div><dt>Planning authority</dt><dd>{{ job.routing.authority_id | replace('_',' ') | title if job.routing and job.routing.authority_id else 'Not determined' }}</dd></div><div><dt>Profile</dt><dd class="small">{{ job.profile | replace('_',' ') }} / {{ job.profile_version }}</dd></div><div><dt>Registry version</dt><dd>{{ job.registry_version }}</dd></div></dl></section>
+  </aside>
+</div>
+<section class="card"><h3>Traceability</h3><p class="muted small">Every request retains its processing history. Technical details are separated from screening conclusions.</p><details><summary>Technical activity &amp; timeline</summary><ol class="timeline">{% for t in job.transitions %}<li><strong>{{ t.from_state | replace('_',' ') | title }} &rarr; {{ t.to_state | replace('_',' ') | title }}</strong><time>{{ t.at.strftime('%b %d, %Y · %H:%M:%S') }} UTC</time>{% if t.note %}{{ t.note }}{% endif %}</li>{% endfor %}</ol><p class="small muted">Full request ID: {{ job.id }}</p></details>{% if job.gates %}<details><summary>Quality checks</summary><ul class="timeline">{% for gate in job.gates.gates %}<li>{{ gate.gate | replace('_',' ') | title }}: {{ gate.outcome }}{% for reason in gate.reasons %}<p>{{ reason }}</p>{% endfor %}</li>{% endfor %}</ul></details>{% endif %}</section>
+{% if has_map %}
 <script>
-document.addEventListener("DOMContentLoaded", function () {
-  var map = L.map("map").setView([29.0, -81.0], 13);
-  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    attribution: "&copy; OpenStreetMap contributors"
-  }).addTo(map);
-  var styles = {
-    parcel: { color: "#0033cc", weight: 3 },
-    candidate: { color: "#cc6600", weight: 2, dashArray: "6 4" },
-    evidence: { color: "#228833", weight: 2 }
-  };
-  fetch("/portal/jobs/{{ job.id }}/layers.geojson?account={{ account }}")
-    .then(function (r) { return r.json(); })
-    .then(function (geojson) {
-      var layer = L.geoJSON(geojson, {
-        style: function (f) {
-          return styles[(f.properties && f.properties.layer) || "evidence"];
-        }
-      }).addTo(map);
-      if (layer.getLayers().length) {
-        map.fitBounds(layer.getBounds());
-      }
-    });
+document.addEventListener('DOMContentLoaded', async () => {
+  const status = document.getElementById('map-status');
+  if (!window.L) { status.textContent = 'The map library could not load. Property details are still available above.'; return; }
+  const map = L.map('map').setView([29.0, -81.0], 10);
+  const tiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
+  tiles.on('tileerror', () => { status.textContent = 'Basemap tiles are unavailable. Any loaded parcel outlines remain visible.'; });
+  try {
+    const url = new URL({{ ('/portal/jobs/' ~ job.id ~ '/layers.geojson') | tojson }}, window.location.origin);
+    url.searchParams.set('account', {{ account | tojson }});
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Map request failed');
+    const data = await response.json();
+    const styles = { parcel: { color: '#245d49', weight: 3, fillOpacity: .08 }, candidate: { color: '#aa7727', weight: 2, dashArray: '6 4' }, evidence: { color: '#67828e', weight: 2 } };
+    const layer = L.geoJSON(data, { style: feature => styles[feature.properties.layer] || styles.evidence }).addTo(map);
+    if (layer.getLayers().length) {
+      map.fitBounds(layer.getBounds(), { padding: [25,25], maxZoom: 17 });
+      status.textContent = 'Parcel outlines and currently permitted evidence layers. Not a certified boundary.';
+    } else { status.textContent = 'No permitted geometry is available for this request.'; }
+  } catch (_) { status.textContent = 'Map layers could not load. You can still review the property details and findings.'; }
 });
 </script>
+{% endif %}
 {% endblock %}
