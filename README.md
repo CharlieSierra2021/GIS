@@ -87,22 +87,53 @@ property-intel/
 
 ## Getting started (development)
 
+Works today (pure Python, no services required):
+
+```bash
+python -m venv .venv && . .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -e ".[dev]"
+pytest -q                         # unit + contract + acceptance (fixture-backed)
+pytest -q -m acceptance           # FL-TST subset only
+ruff check src tests
+uvicorn api.main:app --reload     # GET /health → registry version
+```
+
+Full stack (when the PostGIS/alembic layer lands — board item #7):
+
 ```bash
 cp deploy/env.example .env        # fill in local values; secrets go to a secrets manager
 docker compose -f deploy/docker-compose.yml up -d   # postgis, redis, minio, api, worker
 docker compose exec api alembic upgrade head        # schema migrations
-pytest                            # unit + connector contract tests
-pytest tests/acceptance           # FL-TST acceptance suite (requires fixtures)
 ```
 
 Connector validation harness (verify a live service before registering it):
 
 ```bash
-python -m connectors.validate --provider volusia_county_gis --dataset basemap_parcels
+python -m connectors.validate --provider volusia_county_gis --dataset basemap_parcels \
+    --endpoint https://<host>/arcgis/rest/services/<svc>/FeatureServer/<layer>
 ```
 
 The harness fetches service metadata, resolves layer IDs, checks expected fields/CRS,
-detects schema drift, and writes a registry-ready fixture record.
+detects schema drift, and writes a registry-ready fixture record to
+`tests/connectors/fixtures/`. Exit codes: 0 ok · 1 drift · 2 no endpoint/entry · 3 source error.
+
+## Build status
+
+| Capability | Module | State |
+|---|---|---|
+| Source registry + deny-by-default rights | `connectors/registry.py` | done — `null` = denied, integrity checks vs ICD §8 |
+| Jurisdiction router (geometry-only) | `jurisdiction/router.py` | done — RESOLVED / AMBIGUOUS / UNRESOLVED |
+| Parcel resolution (evidence classes) | `resolution/` | done — 13-case labelled validation set |
+| Connector contract + ArcGIS adapter + harness | `connectors/` | done — mock-tested; live endpoints pending P0 |
+| Finding model with boundary-language guard | `analysis/findings.py` | done — forbidden phrases rejected at construction |
+| Quality gates + four dispositions | `quality/gates.py` | done — license gate is binary PASS/BLOCKED |
+| `florida_land_screening_v1` engine | `analysis/engine.py` | done — nine areas, ICD §14 degradation |
+| API jobs + Celery tasks (ICD §8) | `api/`, `workers/` | next — only `/health` exists |
+| PostGIS persistence + audit trail | — | pending |
+| Report publisher + portal, imagery-denied path | `reports/` | pending — launch blocker FL-TST-14 |
+
+Test baseline: see the latest `feat(M*)` commit message (`git log --grep="Pick-up point" -1`).
+See `CONTRIBUTING.md` for the task board and pick-up protocol.
 
 ## Core concepts you must respect
 
