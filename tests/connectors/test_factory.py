@@ -43,7 +43,11 @@ def test_per_authority_override_preferred() -> None:
 
 
 def test_non_arcgis_access_type_not_implemented() -> None:
-    factory = _factory(endpoint_overrides={"official_records": ENDPOINT})
+    registry = load_registry().model_copy(deep=True)
+    registry.dataset("official_records").access_type = "document_retrieval"
+    factory = ConnectorFactory(
+        registry, endpoint_overrides={"official_records": ENDPOINT}
+    )
     with pytest.raises(ConnectorError) as exc:
         factory.for_dataset("official_records")
     assert exc.value.failure_class == FailureClass.SOURCE_UNAVAILABLE

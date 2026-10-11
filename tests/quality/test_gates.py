@@ -96,6 +96,44 @@ def _inputs(findings, **kwargs) -> GateInputs:
     )
 
 
+def _pending_finding(mandatory: bool) -> Finding:
+    return Finding(
+        id="f-pending",
+        area="permits",
+        status=FindingStatus.PENDING,
+        statement=(
+            "Records request rr-9 for official_records is submitted; "
+            "submitted 2025-06-01; expected by unknown."
+        ),
+        evidence={"request_id": "rr-9"},
+        disclosure="Pending records request — custodian timeline.",
+        mandatory=mandatory,
+    )
+
+
+def test_pending_mandatory_goes_to_review() -> None:
+    registry = _registry(nfhl_flood={"report": True})
+    decision = evaluate(
+        _inputs(
+            [_present_finding(), _pending_finding(True)], registry=registry
+        )
+    )
+    assert decision.disposition == Disposition.HUMAN_REVIEW
+    cov = next(g for g in decision.gates if g.gate == "coverage")
+    assert cov.outcome == GateOutcome.REVIEW
+
+
+def test_pending_non_mandatory_is_qualified() -> None:
+    registry = _registry(nfhl_flood={"report": True})
+    decision = evaluate(
+        _inputs(
+            [_present_finding(), _pending_finding(False)], registry=registry
+        )
+    )
+    assert decision.disposition == Disposition.QUALIFIED_OUTPUT
+    assert any("rr-9" in q for q in decision.qualifications)
+
+
 def test_auto_publish_when_all_pass() -> None:
     reg = _registry(nfhl_flood={"report": True})
     decision = evaluate(_inputs([_present_finding()], registry=reg))

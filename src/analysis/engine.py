@@ -19,6 +19,7 @@ from analysis.findings import (
     SourceCitation,
     not_assessed,
     not_found,
+    pending,
 )
 from analysis.profile import Profile
 from connectors.contract import ConnectorError, FeaturePage
@@ -33,6 +34,8 @@ class EvidenceFetcher(Protocol):
         spatial_rel: str,
         buffer_m: float | None,
         authority_id: str | None = None,
+        job_id: str | None = None,
+        parcel_id: str | None = None,
     ) -> FeaturePage:
         """Fetch features for one dataset; raises ConnectorError on failure."""
         ...
@@ -110,6 +113,8 @@ def screen(ctx: ScreeningContext, profile: Profile, fetcher: EvidenceFetcher) ->
                 spec.spatial_rel,
                 spec.buffer_m,
                 ctx.authority_id if spec.jurisdiction_dependent else None,
+                job_id=ctx.job_id,
+                parcel_id=ctx.parcel_id,
             )
         except ConnectorError as exc:
             reason = f"{exc.failure_class}: {exc.detail}"
@@ -142,7 +147,24 @@ def screen(ctx: ScreeningContext, profile: Profile, fetcher: EvidenceFetcher) ->
             )
 
         if not page.features:
-            findings.append(_no_record())
+            if page.pending is not None:
+                # A records request is in flight — neither present nor
+                # "no record": the custodian's timeline, not ours.
+                findings.append(
+                    pending(
+                        fid,
+                        area,
+                        dataset_id=ds_id,
+                        provider_id=dataset.provider,
+                        registry_version=ctx.registry.registry_version,
+                        request=page.pending,
+                        mandatory=spec.mandatory,
+                        license_name=dataset.license.name,
+                        license_gate=dataset.license.gate,
+                    )
+                )
+            else:
+                findings.append(_no_record())
             continue
 
         analyzer = ANALYZERS[spec.analyzer]

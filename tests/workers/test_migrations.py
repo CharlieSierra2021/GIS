@@ -21,4 +21,9 @@ def test_alembic_upgrade_head(tmp_path) -> None:
     )
     assert result.returncode == 0, result.stderr
     tables = set(inspect(create_engine(f"sqlite:///{db}")).get_table_names())
-    assert {"jobs", "audit_events", "evidence_artifacts"} <= tables
+    assert {
+        "jobs",
+        "audit_events",
+        "evidence_artifacts",
+        "records_requests",
+    } <= tables

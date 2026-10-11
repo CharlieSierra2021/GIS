@@ -49,6 +49,26 @@ def test_empty_page_is_not_found(granted_registry) -> None:
     assert "not evidence of absence" in flood.statement
 
 
+def test_pending_page_is_pending_not_not_found(granted_registry) -> None:
+    from connectors.contract import FeaturePage, PendingInfo
+
+    pages = full_pages()
+    pages["permits"] = FeaturePage(
+        features=[],
+        pending=PendingInfo(
+            request_id="rr-1",
+            status="submitted",
+            submitted_at=NOW,
+            expected_by=None,
+        ),
+    )
+    result = screen(_ctx(granted_registry), load_profile(), StubFetcher(pages))
+    permits = _by_area(result, "permits")
+    assert permits.status == FindingStatus.PENDING
+    assert "Records request rr-1" in permits.statement
+    assert "REQ-PERF-03" in permits.disclosure
+
+
 def test_connector_error_is_not_assessed(granted_registry) -> None:
     pages = full_pages()
     pages["nfhl_flood"] = ConnectorError(

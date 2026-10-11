@@ -21,6 +21,7 @@ from connectors.contract import (
 from connectors.factory import ConnectorFactory
 from connectors.filedownload import FileDownloadConnector
 from connectors.ingest_geojson import features_from_geojson
+from connectors.records_request import RecordsRequestConnector
 
 
 class RegistryEvidenceFetcher:
@@ -42,8 +43,19 @@ class RegistryEvidenceFetcher:
         spatial_rel: str,
         buffer_m: float | None,
         authority_id: str | None = None,
+        job_id: str | None = None,
+        parcel_id: str | None = None,
     ) -> FeaturePage:
         connector = self._factory.for_dataset(dataset_id, authority_id)
+
+        if isinstance(connector, RecordsRequestConnector):
+            return connector.query(
+                QueryRequest(
+                    where=(
+                        f"parcel_id='{parcel_id}' AND job_id='{job_id}'"
+                    )
+                )
+            )
 
         if isinstance(connector, FileDownloadConnector):
             return self._fetch_via_download(

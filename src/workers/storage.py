@@ -12,7 +12,8 @@ about what reconstruction cannot reproduce.
 
 import hashlib
 import json
-from datetime import datetime
+import uuid
+from datetime import UTC, datetime
 from typing import Protocol
 
 from sqlalchemy import JSON, DateTime, ForeignKey, Index, Integer, String, create_engine
@@ -20,6 +21,10 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
 
 from connectors.contract import FeaturePage
 from workers.audit import AuditEvent, AuditEventType
+
+
+def _utcnow() -> datetime:
+    return datetime.now(UTC)
 from workers.jobs import Job
 
 
@@ -71,6 +76,23 @@ class EvidenceRow(Base):
     retrieved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     page: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     sha256: Mapped[str | None] = mapped_column(String, nullable=True)
+    note: Mapped[str | None] = mapped_column(String, nullable=True)
+
+
+class RecordsRequestRow(Base):
+    __tablename__ = "records_requests"
+    __table_args__ = (Index("ix_rr_job", "job_id"),)
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    dataset_id: Mapped[str] = mapped_column(String)
+    parcel_id: Mapped[str] = mapped_column(String)
+    job_id: Mapped[str] = mapped_column(String)
+    submitted_at: Mapped[datetime] = mapped_column(DateTime)
+    expected_by: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    status: Mapped[str] = mapped_column(String)
+    contact: Mapped[str | None] = mapped_column(String, nullable=True)
+    reference: Mapped[str | None] = mapped_column(String, nullable=True)
+    documents: Mapped[list] = mapped_column(JSON)
     note: Mapped[str | None] = mapped_column(String, nullable=True)
 
 
@@ -269,3 +291,113 @@ class InMemoryEvidenceStore:
 
 def engine_for(url: str):
     return create_engine(url)
+
+
+class SqlRecordsRequestTracker:
+    """SQL-backed RecordsRequestTracker — documents stored as JSON."""
+
+    def __init__(self, engine, clock=_utcnow) -> None:
+        from connectors.records_request import (
+            DocumentRef,
+            RecordsRequest,
+            RequestStatus,
+        )
+
+        self._engine = engine
+        self._clock = clock
+        self._DocumentRef = DocumentRef
+        self._RecordsRequest = RecordsRequest
+        self._RequestStatus = RequestStatus
+
+    def open(self, dataset_id, parcel_id, job_id, expected_days):
+        from datetime import timedelta
+
+        now = self._clock()
+        req = self._RecordsRequest(
+            id=str(uuid.uuid4()),
+            dataset_id=dataset_id,
+            parcel_id=parcel_id,
+            job_id=job_id,
+            submitted_at=now,
+            expected_by=(
+                now + timedelta(days=expected_days) if expected_days else None
+            ),
+            status=self._RequestStatus.SUBMITTED,
+        )
+        with Session(self._engine) as s:
+            s.add(self._row(req))
+            s.commit()
+        return req
+
+    def get(self, request_id: str):
+        with Session(self._engine) as s:
+            row = s.get(RecordsRequestRow, request_id)
+        if row is None:
+            raise KeyError(request_id)
+        return self._model(row)
+
+    def find(self, dataset_id: str, parcel_id: str):
+        with Session(self._engine) as s:
+            row = (
+                s.query(RecordsRequestRow)
+                .filter(
+                    RecordsRequestRow.dataset_id == dataset_id,
+                    RecordsRequestRow.parcel_id == parcel_id,
+                )
+                .first()
+            )
+        return self._model(row) if row else None
+
+    def update(self, request_id, status, documents=None, note=None):
+        with Session(self._engine) as s:
+            row = s.get(RecordsRequestRow, request_id)
+            if row is None:
+                raise KeyError(request_id)
+            row.status = str(status)
+            if documents is not None:
+                row.documents = [
+                    d.model_dump(mode="json") for d in documents
+                ]
+            if note is not None:
+                row.note = note
+            s.commit()
+        return self.get(request_id)
+
+    def list_by_job(self, job_id: str):
+        with Session(self._engine) as s:
+            rows = (
+                s.query(RecordsRequestRow)
+                .filter(RecordsRequestRow.job_id == job_id)
+                .all()
+            )
+        return [self._model(r) for r in rows]
+
+    def _row(self, req) -> RecordsRequestRow:
+        return RecordsRequestRow(
+            id=req.id,
+            dataset_id=req.dataset_id,
+            parcel_id=req.parcel_id,
+            job_id=req.job_id,
+            submitted_at=req.submitted_at,
+            expected_by=req.expected_by,
+            status=str(req.status),
+            contact=req.contact,
+            reference=req.reference,
+            documents=[d.model_dump(mode="json") for d in req.documents],
+            note=req.note,
+        )
+
+    def _model(self, row):
+        return self._RecordsRequest(
+            id=row.id,
+            dataset_id=row.dataset_id,
+            parcel_id=row.parcel_id,
+            job_id=row.job_id,
+            submitted_at=row.submitted_at,
+            expected_by=row.expected_by,
+            status=self._RequestStatus(row.status),
+            contact=row.contact,
+            reference=row.reference,
+            documents=[self._DocumentRef.model_validate(d) for d in row.documents],
+            note=row.note,
+        )

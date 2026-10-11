@@ -22,6 +22,10 @@ stateDiagram-v2
     HumanReview --> QualifiedOutput : approved with qualifications
     HumanReview --> Blocked : reviewer rejects
 
+    AutoPublish --> Fetching : rescreen (e.g. records request fulfilled)
+    QualifiedOutput --> Fetching : rescreen
+    HumanReview --> Fetching : rescreen
+
     AutoPublish --> Published : report rendered + manifest
     QualifiedOutput --> Published : report rendered + manifest
     Published --> [*]

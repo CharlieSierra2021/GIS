@@ -9,7 +9,14 @@ from typing import Annotated
 from fastapi import APIRouter, Header, HTTPException, UploadFile
 from fastapi.responses import HTMLResponse
 
-from api.schemas import CandidateSelect, JobCreate, ReviewDecision, job_out
+from api.schemas import (
+    CandidateSelect,
+    JobCreate,
+    RecordsRequestUpdate,
+    ReviewDecision,
+    job_out,
+)
+from connectors.records_request import RequestStatus
 from workers.jobs import IllegalTransition, JobStore
 from workers.pipeline import JobRunner
 from workers.reconstruct import reconstruct_evidence_set
@@ -153,6 +160,61 @@ def build_router(
         return reconstruct_evidence_set(
             job_id, account, audit, evidence_store
         ).model_dump(mode="json")
+
+    @router.post("/jobs/{job_id}/rescreen")
+    def rescreen_job(
+        job_id: str,
+        x_account_id: Annotated[str | None, Header()] = None,
+    ):
+        account = _account(x_account_id)
+        try:
+            return job_out(runner.rescreen(job_id, account))
+        except KeyError:
+            raise HTTPException(404, "job not found") from None
+        except (IllegalTransition, ValueError) as exc:
+            raise HTTPException(409, str(exc)) from exc
+
+    @router.get("/records-requests")
+    def list_records_requests(
+        job_id: str,
+        x_account_id: Annotated[str | None, Header()] = None,
+    ):
+        account = _account(x_account_id)
+        try:
+            store.get(job_id, account)
+        except KeyError:
+            raise HTTPException(404, "job not found") from None
+        tracker = runner.records_tracker
+        if tracker is None:
+            return []
+        return [
+            r.model_dump(mode="json") for r in tracker.list_by_job(job_id)
+        ]
+
+    @router.post("/records-requests/{request_id}")
+    def update_records_request(
+        request_id: str,
+        body: RecordsRequestUpdate,
+        x_account_id: Annotated[str | None, Header()] = None,
+    ):
+        _account(x_account_id)
+        tracker = runner.records_tracker
+        if tracker is None:
+            raise HTTPException(404, "records tracking not configured")
+        try:
+            status = RequestStatus(body.status)
+        except ValueError:
+            raise HTTPException(422, f"invalid status {body.status}") from None
+        try:
+            req = tracker.update(
+                request_id,
+                status=status,
+                documents=body.documents,
+                note=body.note,
+            )
+        except KeyError:
+            raise HTTPException(404, "records request not found") from None
+        return req.model_dump(mode="json")
 
     @router.post("/portfolios", status_code=201)
     async def create_portfolio(

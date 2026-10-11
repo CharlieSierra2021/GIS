@@ -12,6 +12,7 @@ import os
 from analysis.profile import load_profile
 from connectors.evidence import RegistryEvidenceFetcher
 from connectors.factory import ConnectorFactory
+from connectors.records_request import InMemoryRecordsRequestTracker
 from connectors.registry import Registry, load_registry
 from resolution.fixtures import InMemoryParcelSource
 from resolution.resolver import ParcelResolver
@@ -23,6 +24,7 @@ from workers.storage import (
     SqlAuditLog,
     SqlEvidenceStore,
     SqlJobStore,
+    SqlRecordsRequestTracker,
     create_schema,
     engine_for,
 )
@@ -45,7 +47,6 @@ def build_default_runner(registry: Registry | None = None) -> JobRunner:
     otherwise. Endpoints come from the registry or factory overrides."""
     registry = registry or load_registry()
     resolver = ParcelResolver(InMemoryParcelSource([]))
-    fetcher = RegistryEvidenceFetcher(ConnectorFactory(registry))
 
     url = os.environ.get("DATABASE_URL")
     if url:
@@ -54,10 +55,18 @@ def build_default_runner(registry: Registry | None = None) -> JobRunner:
         store = SqlJobStore(engine)
         audit = SqlAuditLog(engine)
         evidence = SqlEvidenceStore(engine)
+        records = SqlRecordsRequestTracker(engine)
     else:
         store = InMemoryJobStore()
         audit = InMemoryAuditLog()
         evidence = InMemoryEvidenceStore()
+        records = InMemoryRecordsRequestTracker()
+
+    # The fetcher's factory and the runner must share one tracker — ops
+    # updates via POST /records-requests must be visible to the connector.
+    fetcher = RegistryEvidenceFetcher(
+        ConnectorFactory(registry, records_tracker=records)
+    )
 
     return JobRunner(
         store=store,
@@ -68,4 +77,5 @@ def build_default_runner(registry: Registry | None = None) -> JobRunner:
         profile=load_profile(),
         audit=audit,
         evidence_store=evidence,
+        records_tracker=records,
     )

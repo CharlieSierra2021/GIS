@@ -29,6 +29,7 @@ class FindingStatus(StrEnum):
     PRESENT = "present"
     NOT_FOUND = "not_found"
     NOT_ASSESSED = "not_assessed"
+    PENDING = "pending"
 
 
 # ICD §10 / SRS REQ-ANL-04: phrases a finding may never state or imply.
@@ -82,8 +83,13 @@ class Finding(BaseModel):
             raise ValueError(
                 f"statement violates ICD §10 boundary language: {hits}"
             )
-        if self.status == FindingStatus.NOT_ASSESSED and not self.disclosure:
-            raise ValueError("NOT_ASSESSED findings must carry a disclosure")
+        if self.status in (
+            FindingStatus.NOT_ASSESSED,
+            FindingStatus.PENDING,
+        ) and not self.disclosure:
+            raise ValueError(
+                f"{self.status} findings must carry a disclosure"
+            )
         if self.status == FindingStatus.PRESENT and (
             not self.citation or not self.citation.feature_keys
         ):
@@ -160,6 +166,60 @@ def not_assessed(
         statement=f"{area.replace('_', ' ')} was not assessed.",
         disclosure=f"Not assessed — {reason}",
         evidence={"dataset_id": dataset_id} if dataset_id else {},
+        mandatory=mandatory,
+    )
+
+
+def pending(
+    id: str,
+    area: FindingArea,
+    *,
+    dataset_id: str,
+    provider_id: str,
+    registry_version: str,
+    request,
+    mandatory: bool,
+    license_name: str | None = None,
+    license_gate: str | None = None,
+) -> Finding:
+    """PENDING — a records request is in flight on the custodian's
+    timeline; the finding is neither present nor not_found (ICD §7/§14)."""
+    expected = (
+        request.expected_by.date().isoformat()
+        if request.expected_by
+        else "unknown"
+    )
+    submitted = (
+        request.submitted_at.date().isoformat()
+        if hasattr(request.submitted_at, "date")
+        else str(request.submitted_at)
+    )
+    return Finding(
+        id=id,
+        area=area,
+        status=FindingStatus.PENDING,
+        statement=(
+            f"Records request {request.request_id} for {dataset_id} is "
+            f"{request.status}; submitted {submitted}; "
+            f"expected by {expected}."
+        ),
+        evidence={
+            "request_id": request.request_id,
+            "request_status": str(request.status),
+            "expected_by": expected,
+        },
+        citation=SourceCitation(
+            dataset_id=dataset_id,
+            provider_id=provider_id,
+            retrieved_at=request.submitted_at,
+            registry_version=registry_version,
+            license_name=license_name,
+            license_gate=license_gate,
+        ),
+        disclosure=(
+            "Pending records request — operates on the custodian's "
+            "timeline, outside the screening SLA (SRS REQ-PERF-03)."
+        ),
         mandatory=mandatory,
     )
 

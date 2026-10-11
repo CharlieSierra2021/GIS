@@ -22,7 +22,7 @@ from workers.pipeline import JobRunner
 NOW = datetime(2025, 6, 1, tzinfo=UTC)
 
 
-def _runner(registry, pages=None, router="toy", **runner_kw) -> JobRunner:
+def _runner(registry, pages=None, router="toy", fetcher=None, **runner_kw) -> JobRunner:
     if router == "toy":
         router_obj = JurisdictionRouter(
             registry=registry,
@@ -35,9 +35,9 @@ def _runner(registry, pages=None, router="toy", **runner_kw) -> JobRunner:
         store=InMemoryJobStore(),
         resolver=ParcelResolver(build_source()),
         router=router_obj,
-        fetcher=StubFetcher(pages if pages is not None else toy_pages()),
+        fetcher=fetcher or StubFetcher(pages if pages is not None else toy_pages()),
         registry=registry,
-        profile=load_profile(),
+        profile=runner_kw.pop("profile", None) or load_profile(),
         clock=lambda: NOW,
         **runner_kw,
     )
@@ -45,6 +45,107 @@ def _runner(registry, pages=None, router="toy", **runner_kw) -> JobRunner:
 
 def _states(job) -> list[JobState]:
     return [t.to_state for t in job.transitions]
+
+
+class _RecordsHybrid(StubFetcher):
+    """Stub pages for every dataset, except `records_dataset` which is
+    served by a real RecordsRequestConnector over the shared tracker."""
+
+    def __init__(self, pages, connector, records_dataset="official_records"):
+        super().__init__(pages)
+        self._conn = connector
+        self._records_ds = records_dataset
+
+    def fetch(
+        self,
+        dataset_id,
+        parcel_wkt,
+        spatial_rel,
+        buffer_m,
+        authority_id=None,
+        job_id=None,
+        parcel_id=None,
+    ):
+        if dataset_id == self._records_ds:
+            from connectors.contract import QueryRequest
+
+            return self._conn.query(
+                QueryRequest(
+                    where=f"parcel_id='{parcel_id}' AND job_id='{job_id}'"
+                )
+            )
+        return super().fetch(
+            dataset_id, parcel_wkt, spatial_rel, buffer_m, authority_id
+        )
+
+
+def _records_runner():
+    """Runner whose `permits` area is backed by a records_request dataset
+    (profile is data — a real title_documents area is a v1.1 decision)."""
+    from connectors.records_request import (
+        InMemoryRecordsRequestTracker,
+        RecordsRequestConnector,
+    )
+
+    registry = publishable_registry()
+    registry.dataset("official_records").permissions.query = True
+    registry.dataset("official_records").permissions.report = True
+    tracker = InMemoryRecordsRequestTracker()
+    connector = RecordsRequestConnector(
+        "volusia_clerk", registry.dataset("official_records"), tracker
+    )
+    profile = load_profile()
+    profile.areas["permits"] = profile.areas["permits"].model_copy(
+        update={"dataset": "official_records"}
+    )
+    fetcher = _RecordsHybrid(toy_pages(), connector)
+    runner = _runner(
+        registry,
+        fetcher=fetcher,
+        profile=profile,
+        records_tracker=tracker,
+    )
+    return runner, tracker
+
+
+def test_records_request_pending_then_rescreen() -> None:
+    from connectors.records_request import DocumentRef, RequestStatus
+
+    runner, tracker = _records_runner()
+    job = runner.submit(
+        "acct-1", IntakeRequest(kind=IntakeKind.ADDRESS, address="123 Main St")
+    )
+    assert job.state == JobState.QUALIFIED_OUTPUT
+    finding = next(f for f in job.screening.findings if f.area == "permits")
+    assert finding.status.value == "pending"
+
+    request = tracker.find("official_records", "P-001")
+    tracker.update(
+        request.id,
+        RequestStatus.FULFILLED,
+        documents=[DocumentRef(key="d1", title="Deed", recorded_date="2024-03-04")],
+    )
+    job = runner.rescreen(job.id, "acct-1")
+    assert "rescreen" in (job.transitions[-6].note or "") or any(
+        t.note == "rescreen" for t in job.transitions
+    )
+    finding = next(f for f in job.screening.findings if f.area == "permits")
+    assert finding.status.value == "present"
+    assert "rescreen" in [t.note for t in job.transitions]
+
+
+def test_rescreen_on_published_is_illegal() -> None:
+    from reports.publisher import ReportPublisher
+
+    registry = publishable_registry()
+    runner = _runner(registry, publisher=ReportPublisher(registry, clock=lambda: NOW))
+    job = runner.submit(
+        "acct-1", IntakeRequest(kind=IntakeKind.ADDRESS, address="123 Main St")
+    )
+    job = runner.publish(job.id, "acct-1")
+    assert job.state == JobState.PUBLISHED
+    with pytest.raises(IllegalTransition):
+        runner.rescreen(job.id, "acct-1")
 
 
 def test_address_happy_path_auto_publishes() -> None:

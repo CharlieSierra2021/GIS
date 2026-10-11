@@ -48,6 +48,7 @@ class JobRunner:
         auto_publish_on_pass: bool = False,
         audit: AuditLog | None = None,
         evidence_store=None,
+        records_tracker=None,
     ) -> None:
         self._store = store
         self._resolver = resolver
@@ -60,6 +61,7 @@ class JobRunner:
         self._auto_publish_on_pass = auto_publish_on_pass
         self._audit = audit
         self._evidence_store = evidence_store
+        self._records_tracker = records_tracker
 
     @property
     def store(self) -> JobStore:
@@ -76,6 +78,10 @@ class JobRunner:
     @property
     def evidence_store(self):
         return self._evidence_store
+
+    @property
+    def records_tracker(self):
+        return self._records_tracker
 
     # -- public API ---------------------------------------------------------
 
@@ -208,6 +214,35 @@ class JobRunner:
         self._store.put(job)
         return job
 
+    def rescreen(self, job_id: str, account_id: str) -> Job:
+        """Re-run fetching → screening → gates with the existing
+        resolution/routing — e.g. after a records request is fulfilled.
+        Valid from AUTO_PUBLISH / QUALIFIED_OUTPUT / HUMAN_REVIEW."""
+        job = self._store.get(job_id, account_id)
+        if job.state not in (
+            JobState.AUTO_PUBLISH,
+            JobState.QUALIFIED_OUTPUT,
+            JobState.HUMAN_REVIEW,
+        ):
+            raise IllegalTransition(
+                f"rescreen requires a post-gates state, got {job.state}"
+            )
+        try:
+            self._advance(job, JobState.FETCHING, note="rescreen")
+            self._screen_gate(job)
+        except IllegalTransition:
+            raise
+        except Exception as exc:  # noqa: BLE001 - job must fail, not crash
+            job.error = str(exc)
+            try:
+                self._advance(job, JobState.FAILED, note=str(exc))
+            except IllegalTransition:
+                job.state = JobState.FAILED
+            self._emit(job, AuditEventType.ERROR, {"error": str(exc)})
+        finally:
+            self._store.put(job)
+        return job
+
     def _do_publish(self, job: Job) -> None:
         if self._publisher is None:
             raise ValueError("no report publisher configured")
@@ -257,9 +292,15 @@ class JobRunner:
         self._emit(job, AuditEventType.ROUTING, {"routing": routing})
 
         self._advance(job, JobState.FETCHING)
+        self._screen_gate(job)
+
+    def _screen_gate(self, job: Job) -> None:
         self._advance(job, JobState.SCREENING)
+        routing = job.routing or {}
         authority_id = (
-            routing["authority_id"] if routing["status"] == "resolved" else None
+            routing.get("authority_id")
+            if routing.get("status") == "resolved"
+            else None
         )
         ctx = ScreeningContext(
             job_id=job.id,
@@ -362,10 +403,23 @@ class RecordingFetcher:
         self._job_id = job_id
 
     def fetch(
-        self, dataset_id, parcel_wkt, spatial_rel, buffer_m, authority_id=None
+        self,
+        dataset_id,
+        parcel_wkt,
+        spatial_rel,
+        buffer_m,
+        authority_id=None,
+        job_id=None,
+        parcel_id=None,
     ):
         page = self._inner.fetch(
-            dataset_id, parcel_wkt, spatial_rel, buffer_m, authority_id
+            dataset_id,
+            parcel_wkt,
+            spatial_rel,
+            buffer_m,
+            authority_id,
+            job_id=job_id,
+            parcel_id=parcel_id,
         )
         dataset = self._registry.dataset(dataset_id)
         allowed = dataset.permissions.allows("cache")

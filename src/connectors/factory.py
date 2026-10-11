@@ -4,9 +4,9 @@ Resolves endpoints from the registry (or overrides), instantiates the
 connector for the dataset's ``access_type``, and caches one connector
 instance per dataset id (``describe()`` itself is never cached — CON-A).
 
-``arcgis_query`` and ``file_download`` are implemented;
-``document_retrieval`` and ``records_request`` are later board items and
-raise a classified failure rather than guessing.
+``arcgis_query``, ``file_download`` and ``records_request`` are
+implemented; ``document_retrieval`` remains a later board item and raises
+a classified failure rather than guessing.
 
 Per-authority datasets (``per_authority: true`` in the registry, e.g.
 ``mun_flu``) use endpoint-override keys of the form
@@ -21,6 +21,11 @@ import httpx
 from connectors.arcgis import ArcGISFeatureServiceConnector
 from connectors.contract import Connector, ConnectorError, FailureClass
 from connectors.filedownload import FileDownloadConnector
+from connectors.records_request import (
+    InMemoryRecordsRequestTracker,
+    RecordsRequestConnector,
+    RecordsRequestTracker,
+)
 from connectors.registry import Registry
 
 
@@ -33,6 +38,7 @@ class ConnectorFactory:
         endpoint_overrides: dict[str, str] | None = None,
         expected_fingerprints: dict[str, str] | None = None,
         cache_dir: Path | str | None = None,
+        records_tracker: RecordsRequestTracker | None = None,
     ) -> None:
         self._registry = registry
         self._client = client
@@ -41,6 +47,7 @@ class ConnectorFactory:
         self._cache_dir = Path(
             cache_dir or os.environ.get("PI_CACHE_DIR", ".cache")
         )
+        self._records_tracker = records_tracker or InMemoryRecordsRequestTracker()
         self._cache: dict[tuple[str, str | None], Connector] = {}
 
     def for_dataset(
@@ -55,13 +62,17 @@ class ConnectorFactory:
         endpoint = self._overrides.get(key_id) or self._overrides.get(
             dataset_id
         ) or dataset.endpoint
-        if not endpoint:
+        if not endpoint and dataset.access_type != "records_request":
             raise ConnectorError(
                 FailureClass.SOURCE_UNAVAILABLE,
                 detail=f"no endpoint registered for {dataset_id}",
             )
 
-        if dataset.access_type not in ("arcgis_query", "file_download"):
+        if dataset.access_type not in (
+            "arcgis_query",
+            "file_download",
+            "records_request",
+        ):
             raise ConnectorError(
                 FailureClass.SOURCE_UNAVAILABLE,
                 detail=f"access_type {dataset.access_type} not yet implemented",
@@ -69,7 +80,13 @@ class ConnectorFactory:
 
         cache_key = (dataset_id, authority_id)
         if cache_key not in self._cache:
-            if dataset.access_type == "file_download":
+            if dataset.access_type == "records_request":
+                self._cache[cache_key] = RecordsRequestConnector(
+                    dataset.provider,
+                    dataset,
+                    self._records_tracker,
+                )
+            elif dataset.access_type == "file_download":
                 self._cache[cache_key] = FileDownloadConnector(
                     dataset.provider,
                     dataset,

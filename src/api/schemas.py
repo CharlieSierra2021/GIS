@@ -4,6 +4,7 @@ from typing import Literal
 
 from pydantic import BaseModel, model_validator
 
+from connectors.records_request import DocumentRef
 from resolution.intake import IntakeKind, IntakeRequest
 
 
@@ -39,6 +40,15 @@ class ReviewDecision(BaseModel):
     reviewer: str
     approve: Literal["publish", "qualified", "reject"]
     rationale: str
+
+
+class RecordsRequestUpdate(BaseModel):
+    """Ops-side status update for a records request (auth is a later
+    milestone — the X-Account-Id shim applies as elsewhere)."""
+
+    status: str
+    documents: list[DocumentRef] | None = None
+    note: str | None = None
 
 
 def job_out(job) -> dict:

@@ -75,10 +75,22 @@ class Feature(BaseModel):
     provenance: Provenance
 
 
+class PendingInfo(BaseModel):
+    """A records request in flight — the page is empty because the
+    custodian has not yet fulfilled it (ICD §7 / §14 pending row)."""
+
+    request_id: str
+    status: str
+    submitted_at: datetime
+    expected_by: datetime | None = None
+    contact: str | None = None
+
+
 class FeaturePage(BaseModel):
     features: list[Feature]
     next_offset: int | None = None
     exceeded_limit: bool = False
+    pending: PendingInfo | None = None
 
 
 class QueryRequest(BaseModel):

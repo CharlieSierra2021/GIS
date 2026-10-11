@@ -150,6 +150,12 @@ def _gate_coverage(inputs: GateInputs) -> GateResult:
         if finding.status == FindingStatus.NOT_ASSESSED:
             msg = f"finding {finding.id} not assessed ({finding.disclosure})"
             (gaps if finding.mandatory else partial).append(msg)
+        elif finding.status == FindingStatus.PENDING:
+            req = finding.evidence.get("request_id", "unknown")
+            msg = f"{finding.area} pending records request {req}"
+            # Mandatory pending goes to review — the SLA cannot auto-pass
+            # it; non-mandatory is disclosed as a qualification.
+            (gaps if finding.mandatory else partial).append(msg)
         elif finding.status == FindingStatus.NOT_FOUND:
             partial.append(f"finding {finding.id}: no record, disclosed")
     if gaps:

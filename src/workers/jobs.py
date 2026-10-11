@@ -53,9 +53,10 @@ _TRANSITIONS: dict[JobState, set[JobState]] = {
         JobState.AUTO_PUBLISH,
         JobState.QUALIFIED_OUTPUT,
         JobState.BLOCKED,
+        JobState.FETCHING,  # rescreen
     },
-    JobState.AUTO_PUBLISH: {JobState.PUBLISHED},
-    JobState.QUALIFIED_OUTPUT: {JobState.PUBLISHED},
+    JobState.AUTO_PUBLISH: {JobState.PUBLISHED, JobState.FETCHING},
+    JobState.QUALIFIED_OUTPUT: {JobState.PUBLISHED, JobState.FETCHING},
     JobState.PUBLISHED: set(),
     JobState.BLOCKED: set(),
     JobState.FAILED: set(),

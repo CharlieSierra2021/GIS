@@ -42,7 +42,14 @@ class StubFetcher:
         self.calls: list[tuple[str, str | None]] = []
 
     def fetch(
-        self, dataset_id, parcel_wkt, spatial_rel, buffer_m, authority_id=None
+        self,
+        dataset_id,
+        parcel_wkt,
+        spatial_rel,
+        buffer_m,
+        authority_id=None,
+        job_id=None,
+        parcel_id=None,
     ) -> FeaturePage:
         self.calls.append((dataset_id, authority_id))
         result = self.pages[dataset_id]
