@@ -1,0 +1,67 @@
+# Labelled parcel-resolution validation set (SRS REQ-RES-06 traceability).
+# Each case is replayed verbatim against ParcelResolver in test_resolver.py.
+cases:
+  - id: res-parcel-id-exact
+    intake: {kind: parcel_id, parcel_id: P-001}
+    expected: {status: resolved, parcel_id: P-001, confidence: identity}
+    note: exact parcel-id match resolves at identity grade
+
+  - id: res-parcel-id-unknown
+    intake: {kind: parcel_id, parcel_id: ZZZ-999}
+    expected: {status: unresolved, parcel_id: null, confidence: null}
+    note: unknown id cannot resolve
+
+  - id: res-address-exact
+    intake: {kind: address, address: "123 Main Street"}
+    expected: {status: resolved, parcel_id: P-001, confidence: identity}
+    note: suffix variant STREET->ST normalizes to stored address
+
+  - id: res-address-avenue
+    intake: {kind: address, address: "456 Oak Avenue."}
+    expected: {status: resolved, parcel_id: P-002, confidence: identity}
+    note: punctuation and AVENUE suffix normalized
+
+  - id: res-condo-no-unit
+    intake: {kind: address, address: "500 Ocean Blvd"}
+    expected: {status: awaiting_customer_input, parcel_id: null, confidence: null}
+    note: stacked situs without unit suspends for customer selection
+
+  - id: res-condo-with-unit
+    intake: {kind: address, address: "500 Ocean Blvd", unit: "102"}
+    expected: {status: resolved, parcel_id: C-102, confidence: identity}
+    note: unit-level match resolves the unit, never the parent
+
+  - id: res-condo-wrong-unit
+    intake: {kind: address, address: "500 Ocean Blvd", unit: "999"}
+    expected: {status: awaiting_customer_input, parcel_id: null, confidence: null}
+    note: unmatched unit cannot silently resolve
+
+  - id: res-geometry-exact
+    intake: {kind: geometry, geometry_wkt: "POLYGON ((0 0, 10 0, 10 10, 0 10, 0 0))"}
+    expected: {status: resolved, parcel_id: P-001, confidence: strong}
+    note: IoU >= 0.95 on exactly one parcel resolves STRONG
+
+  - id: res-geometry-spanning
+    intake: {kind: geometry, geometry_wkt: "POLYGON ((5 0, 25 0, 25 10, 5 10, 5 0))"}
+    expected: {status: awaiting_customer_input, parcel_id: null, confidence: null}
+    note: geometry covering two parcels is offered, never auto-picked
+
+  - id: res-point-inside
+    intake: {kind: geometry, geometry_wkt: "POINT (5 5)"}
+    expected: {status: awaiting_customer_input, parcel_id: null, confidence: supporting}
+    note: point-in-polygon is supporting evidence only (REQ-RES-02)
+
+  - id: res-stacked-unit-inline
+    intake: {kind: address, address: "500 Ocean Blvd #101"}
+    expected: {status: resolved, parcel_id: C-101, confidence: identity}
+    note: inline unit designator resolves the unit
+
+  - id: res-single-unit-mismatch
+    intake: {kind: address, address: "700 Canal Ct", unit: "2"}
+    expected: {status: awaiting_customer_input, parcel_id: null, confidence: null}
+    note: contradicting unit evidence is never silently dropped (REQ-RES-04)
+
+  - id: res-address-not-found
+    intake: {kind: address, address: "999 Nowhere Ln"}
+    expected: {status: unresolved, parcel_id: null, confidence: null}
+    note: unknown situs cannot resolve
