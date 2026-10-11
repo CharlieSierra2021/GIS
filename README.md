@@ -176,7 +176,7 @@ detects schema drift, and writes a registry-ready fixture record to
 | Job pipeline, state machine, jobs API, Celery shells (ICD §8) | `workers/`, `api/` | done — in-process end to end; `AwaitingCustomerInput` resumable |
 | Report publisher + manifest + imagery-denied path | `reports/` | done — HTML; PDF renderer is a deploy-time dep (WeasyPrint) |
 | SQL persistence, audit trail, evidence reconstruction | `workers/storage.py`, `audit.py`, `reconstruct.py` | done — SQLite/Postgres via alembic; cache-denied evidence reported as gaps |
-| Customer portal (Leaflet, candidate picker, rights-filtered layers) | `api/portal.py` | done — display-denied geometry never leaves the server |
+| Customer portal (Leaflet, candidate picker, evidence layers) | `api/portal.py` | M15: evidence GeoJSON requires current display permission and, after publication, manifest inclusion; broader delivery-rights audit pending |
 | `file_download` + GeoJSON ingest, `records_request` workflow | `connectors/filedownload.py`, `records_request.py` | done — 3 of 4 access types; `document_retrieval` pending; EPSG:3087 via pyproj |
 | PostGIS geometry columns, real auth, ortho tile layer, PDF | — | pending |
 | Installed-wheel startup and resources (M14) | `Dockerfile`, `connectors/registry.py`, package metadata | wheel smoke-tested outside checkout; Docker/Compose still unverified |
@@ -227,6 +227,18 @@ or doc it depicts; GitHub renders them in previews and they can be pasted into d
 | Quality-gate dispositions | [`quality-gates.mmd`](docs/diagrams/quality-gates.mmd) | ICD §15, SRS REQ-QG |
 
 ## Launch status
+
+This is a fixture-tested development prototype, not a production-ready service.
+Account headers/query parameters are not authentication. Docker/Compose, PostgreSQL,
+live-provider contracts, and remote CI outcomes require separate verification.
+
+M15 rechecks the runner's current in-memory registry on each evidence GeoJSON request:
+revoked, unknown, or removed datasets are excluded even when an older publication
+manifest lists them. Missing publication metadata permits no evidence layers. This
+preserves historical manifests; it does not implement registry hot-reloading, revoke
+previously downloaded files, or cover stored HTML reports, raw job/audit/evidence JSON,
+or source-derived parcel/candidate geometry. Those delivery paths and file-download
+cache retention need a rights audit before customer access.
 
 Before any customer-facing release, the launch gates **L1–L9** (`docs/ICD-FL-001.md` §12)
 must close — most are procurement/legal verifications, not engineering. Highest-risk item:

@@ -129,6 +129,51 @@ def test_layers_geojson_display_rights(client: TestClient) -> None:
     assert "nwi_wetlands" not in resp.text  # not merely hidden client-side
 
 
+@pytest.mark.parametrize("display", [False, None])
+def test_published_layers_recheck_current_display_rights(client, runner, display) -> None:
+    job_id = _submit(client, {"kind": "address", "address": "123 Main St"})
+    assert client.post(f"/jobs/{job_id}/publish", headers=H).status_code == 200
+    manifest = runner.store.get(job_id, "acct-1").report["manifest"]
+    assert "nfhl_flood" in manifest["map_layers"]
+    runner.registry.dataset("nfhl_flood").permissions.display = display
+
+    response = client.get(f"/portal/jobs/{job_id}/layers.geojson", headers=H)
+    assert response.status_code == 200
+    assert "nfhl_flood" not in response.text
+    assert "nwi_wetlands" in response.text
+    assert "nfhl_flood" in manifest["map_layers"]
+    runner.registry.dataset("nfhl_flood").permissions.display = True
+    response = client.get(f"/portal/jobs/{job_id}/layers.geojson", headers=H)
+    assert response.status_code == 200
+    assert "nfhl_flood" in response.text
+
+
+@pytest.mark.parametrize("published", [False, True])
+def test_layers_omit_dataset_removed_from_registry(client, runner, published) -> None:
+    job_id = _submit(client, {"kind": "address", "address": "123 Main St"})
+    if published:
+        assert client.post(f"/jobs/{job_id}/publish", headers=H).status_code == 200
+    runner.registry.datasets = [ds for ds in runner.registry.datasets if ds.id != "nfhl_flood"]
+
+    response = client.get(f"/portal/jobs/{job_id}/layers.geojson", headers=H)
+    assert response.status_code == 200
+    assert "nfhl_flood" not in response.text
+    assert "nwi_wetlands" in response.text
+
+
+@pytest.mark.parametrize("report", [None, {}, {"manifest": {}}, {"manifest": {"map_layers": []}}])
+def test_published_layers_require_manifest_allowlist(client, runner, report) -> None:
+    job_id = _submit(client, {"kind": "address", "address": "123 Main St"})
+    assert client.post(f"/jobs/{job_id}/publish", headers=H).status_code == 200
+    job = runner.store.get(job_id, "acct-1")
+    job.report = report
+    runner.store.put(job)
+
+    response = client.get(f"/portal/jobs/{job_id}/layers.geojson", headers=H)
+    assert response.status_code == 200
+    assert all(f["properties"]["layer"] != "evidence" for f in response.json()["features"])
+
+
 def test_imagery_banner_denied_and_licensed() -> None:
     denied = TestClient(create_app(_runner()))
     job_id = _submit(denied, {"kind": "address", "address": "123 Main St"})

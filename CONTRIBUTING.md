@@ -63,6 +63,20 @@ gap remains; blank = not started.
 | 17 | PostGIS geometry columns + spatial store | P2 | SRS REQ-DAT-01/03 | Source + derived geometries as PostGIS types; alembic revision | — | |
 | 18 | Ortho tile layer (licensed branch) + PDF renderer | P4 | ICD §11 L2, REQ-RPT-01 | WeasyPrint in deploy image; tiles only when `ortho_2024` display+report ✓ | — | |
 
+### M14–M15 deployment and rights follow-up
+
+- M14 (`40ae538`): non-editable wheel resources and explicit `PI_REGISTRY_PATH`;
+  wheel startup tested outside the checkout. Docker/Compose remain unverified.
+- M15: published evidence GeoJSON requires both current display permission and the
+  historical manifest allowlist. Removed datasets and missing publication metadata
+  fail closed; regression tests cover revocation and restoration without changing the
+  historical manifest.
+- Next release-blocking work: real authentication (row 16), then rights checks across
+  raw job/audit/evidence JSON, stored report downloads, source-derived parcel/candidate
+  geometry, and file-download cache retention. M15 does not certify these other paths.
+- Fixture tests passing is not equivalent to closing launch gates or proving remote CI
+  passed. Record local, hosted CI, container and live-source results separately.
+
 ### Pick-up protocol
 
 Every milestone commit on `main` ends with a **Pick-up point** paragraph naming the next

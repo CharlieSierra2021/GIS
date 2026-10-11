@@ -233,10 +233,12 @@ def _layers(job: Job, registry: Registry) -> dict:
             features.append(feat)
 
     if job.screening:
-        published = job.state == JobState.PUBLISHED and job.report
-        map_layers = (
-            job.report["manifest"].get("map_layers", []) if published else []
-        )
+        published = job.state == JobState.PUBLISHED
+        manifest = (job.report or {}).get("manifest") or {}
+        map_layers = manifest.get("map_layers") or []
+        display_allowed = {
+            dataset.id for dataset in registry.datasets if dataset.permissions.allows("display")
+        }
         for finding in job.screening.findings:
             if not finding.citation:
                 continue
@@ -244,11 +246,7 @@ def _layers(job: Job, registry: Registry) -> dict:
             wkt = finding.evidence.get("geometry_wkt")
             if not wkt:
                 continue
-            if published:
-                allowed = ds_id in map_layers
-            else:
-                allowed = registry.dataset(ds_id).permissions.allows("display")
-            if not allowed:
+            if ds_id not in display_allowed or (published and ds_id not in map_layers):
                 continue
             features.append(
                 {

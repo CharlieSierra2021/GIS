@@ -250,3 +250,16 @@ source tree. The registry is supplied explicitly using `PI_REGISTRY_PATH`.
 fall back when the configured registry is missing. No rights values are changed by
 this milestone. The Dockerfile supplies the registry path and copies migrations, but
 Docker/Compose execution and PostgreSQL migration acceptance remain separate gates.
+
+### 5.2 Current display-rights regression (M15)
+
+`tests/api/test_portal.py` verifies REQ-REG-02 and REQ-PTL-03 for evidence GeoJSON:
+post-publication display revocation (`false` or `null`) removes the dataset from the
+response, removal from the current registry denies delivery, and missing or empty
+publication allowlists expose no evidence layers. Restoring the right only restores
+layers already permitted by the historical manifest; that manifest remains unchanged.
+
+These tests use the runner's in-memory registry, not a live registry refresh mechanism.
+They do not verify rights on raw job/audit/evidence JSON, stored report downloads,
+parcel/candidate geometry, or file-download retention. Those paths remain release-review
+items alongside real authentication, independently of the fixture acceptance suite.
