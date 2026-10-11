@@ -125,7 +125,8 @@ docker compose exec api alembic upgrade head        # schema migrations
 | `GET` | `/jobs`, `/jobs/{id}` | Job state, transitions, resolution, routing, screening, gates |
 | `POST` | `/jobs/{id}/select-candidate` | Resume an `AwaitingCustomerInput` job (REQ-RES-03) |
 | `POST` | `/jobs/{id}/review` | Reviewer disposition from `HumanReview` |
-| `POST` | `/jobs/{id}/publish` | Publish from `AutoPublish` / `QualifiedOutput` |
+| `POST` | `/jobs/{id}/publish` · `/rescreen` | Publish from `AutoPublish` / `QualifiedOutput` · re-run fetch→gates after a records request is fulfilled |
+| `POST`/`GET` | `/records-requests/{id}` · `/records-requests?job_id=` | Ops fulfilment of pending records requests · list per job |
 | `GET` | `/jobs/{id}/report` · `/manifest` | Rendered HTML report · manifest JSON |
 | `GET` | `/jobs/{id}/audit` · `/evidence` | Append-only audit events · reconstructed evidence set (FL-TST-12) |
 | `GET` | `/portal/...` | Customer portal: job list, submit form, candidate picker, Leaflet map, rights-filtered `layers.geojson` |
@@ -157,7 +158,7 @@ detects schema drift, and writes a registry-ready fixture record to
 | Report publisher + manifest + imagery-denied path | `reports/` | done — HTML; PDF renderer is a deploy-time dep (WeasyPrint) |
 | SQL persistence, audit trail, evidence reconstruction | `workers/storage.py`, `audit.py`, `reconstruct.py` | done — SQLite/Postgres via alembic; cache-denied evidence reported as gaps |
 | Customer portal (Leaflet, candidate picker, rights-filtered layers) | `api/portal.py` | done — display-denied geometry never leaves the server |
-| `file_download` / `records_request` connector types | `connectors/` | in progress — ArcGIS only so far |
+| `file_download` + GeoJSON ingest, `records_request` workflow | `connectors/filedownload.py`, `records_request.py` | done — 3 of 4 access types; `document_retrieval` pending; EPSG:3087 via pyproj |
 | PostGIS geometry columns, real auth, ortho tile layer, PDF | — | pending |
 | Live endpoints + rights (P0 procurement) | `registry/volusia.yaml` | pending — every `display`/`report` cell still `null` |
 
