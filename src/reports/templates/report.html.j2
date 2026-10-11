@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Screening Report — {{ job.resolution.parcel_id if job.resolution else "unknown" }}</title>
+<style>
+  body { font-family: sans-serif; margin: 2em; color: #1a1a1a; }
+  .banner { background: #fff3cd; border: 1px solid #d4a017; padding: 0.8em; margin-bottom: 1.5em; }
+  .imagery-denied { background: #f8d7da; border: 1px solid #b02a37; padding: 0.8em; }
+  table { border-collapse: collapse; width: 100%; margin-bottom: 1.5em; }
+  th, td { border: 1px solid #ccc; padding: 0.4em 0.6em; text-align: left; vertical-align: top; }
+  th { background: #eee; }
+  .disposition { font-weight: bold; text-transform: uppercase; }
+  footer { color: #666; font-size: 0.85em; margin-top: 2em; }
+</style>
+</head>
+<body>
+
+<div class="banner">
+  <strong>SCREENING REPORT — not a survey, determination, or delineation.</strong>
+  <p>{{ boundary_statement }}</p>
+</div>
+
+<h1>Property Screening Report</h1>
+<p>
+  Parcel: <strong>{{ job.resolution.parcel_id if job.resolution else "unresolved" }}</strong><br>
+  Job: {{ job.id }}<br>
+  Generated: {{ generated_at.isoformat() }}<br>
+  Disposition: <span class="disposition">{{ job.gates.disposition }}</span>
+</p>
+
+<h2>Parcel &amp; jurisdiction</h2>
+{% if authority_name %}
+<p>Planning authority: <strong>{{ authority_name }}</strong>
+  ({{ routing.authority_id }})</p>
+{% else %}
+<p>Planning authority: unresolved. {{ routing.disclosure or "" }}</p>
+{% endif %}
+{% if job.resolution %}
+<p>Resolution: {{ job.resolution.status }}{% if job.resolution.confidence %}
+  ({{ job.resolution.confidence }}){% endif %}{% if job.resolution.customer_selection %}
+  — customer selected {{ job.resolution.customer_selection }}{% endif %}</p>
+{% endif %}
+
+<h2>Findings</h2>
+{% for area, findings in finding_groups %}
+<h3>{{ area.replace("_", " ") }}</h3>
+<table>
+  <tr><th>Status</th><th>Statement</th><th>Source</th><th>Vintage</th></tr>
+  {% for f in findings %}
+  <tr>
+    <td>{{ f.status }}</td>
+    <td>
+      {{ f.statement }}
+      {% if f.disclosure %}<br><em>{{ f.disclosure }}</em>{% endif %}
+      {% for k, v in f.evidence.items() if k in ("zones", "sfha_flags", "nearest_m", "within_buffer", "records") %}
+        <br><small>{{ k }}: {{ v }}</small>
+      {% endfor %}
+    </td>
+    <td>
+      {% if f.citation %}
+        {{ f.citation.dataset_id }} / {{ f.citation.provider_id }}<br>
+        keys: {{ f.citation.feature_keys | join(", ") }}
+      {% else %}—{% endif %}
+    </td>
+    <td>
+      {% if f.citation %}
+        observed: {{ f.citation.observation_date or "unknown" }}<br>
+        published: {{ f.citation.publication_date or "unknown" }}<br>
+        retrieved: {{ f.citation.retrieved_at.date().isoformat() if f.citation.retrieved_at else "unknown" }}
+      {% else %}—{% endif %}
+    </td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}
+<p>No findings.</p>
+{% endfor %}
+
+{% if qualifications %}
+<h2>Qualifications</h2>
+<ul>{% for q in qualifications %}<li>{{ q }}</li>{% endfor %}</ul>
+{% endif %}
+
+<h2>Aerial imagery</h2>
+{% if imagery == "licensed" %}
+<div class="imagery-licensed">
+  <p>Orthophoto ({{ disclosures | selectattr("dataset_id", "equalto", "ortho_2024") | map(attribute="vintage_observation") | first or "2024" }} imagery service licensed for display).</p>
+  <img src="ortho_2024://tiles" alt="Licensed orthoimagery tile layer placeholder">
+</div>
+{% else %}
+<div class="imagery-denied">
+  <p>Aerial imagery not licensed for display.</p>
+</div>
+{% endif %}
+
+<h2>Map layers</h2>
+<ul>
+{% for layer in map_layers %}<li>{{ layer }}</li>{% else %}<li>none (rights-filtered)</li>{% endfor %}
+</ul>
+
+<h2>Source licensing &amp; vintage disclosures</h2>
+<table>
+  <tr><th>Dataset</th><th>Provider</th><th>Licence</th><th>Gate</th><th>Display</th><th>Report</th><th>Observed</th><th>Published</th><th>Retrieved</th></tr>
+  {% for d in disclosures %}
+  <tr>
+    <td>{{ d.dataset_id }}</td>
+    <td>{{ d.provider_name or "unknown" }}</td>
+    <td>{{ d.license_name or "unknown" }}</td>
+    <td>{{ d.gate or "unknown" }}</td>
+    <td>{{ "yes" if d.display_allowed else "no" }}</td>
+    <td>{{ "yes" if d.report_allowed else "no" }}</td>
+    <td>{{ d.vintage_observation or "unknown" }}</td>
+    <td>{{ d.vintage_publication or "unknown" }}</td>
+    <td>{{ d.retrieved_at.date().isoformat() if d.retrieved_at else "unknown" }}</td>
+  </tr>
+  {% endfor %}
+</table>
+
+{% if excluded %}
+<h2>Withheld content</h2>
+<ul>{% for e in excluded %}<li>{{ e }}</li>{% endfor %}</ul>
+{% endif %}
+
+<footer>
+  registry {{ job.registry_version }} · profile {{ job.profile }} v{{ job.profile_version }}
+  · template v{{ template_version | default("1.0.0") }}
+</footer>
+
+</body>
+</html>

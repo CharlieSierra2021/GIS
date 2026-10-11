@@ -1,7 +1,7 @@
-import pytest
 
 from connectors.registry import TASK_TYPES
 from resolution.intake import IntakeKind, IntakeRequest
+from tests.support.stubs import publishable_registry
 from tests.workers.test_pipeline import _runner
 from workers import runtime, tasks
 from workers.jobs import JobState
@@ -41,15 +41,21 @@ def test_resolve_parcel_task_runs_eager() -> None:
 
 
 def _runner_publishable():
-    from tests.support.stubs import publishable_registry
-
     return _runner(publishable_registry())
 
 
-def test_publish_report_stub() -> None:
-    runtime.set_runner(_runner_publishable())
+def test_publish_report_task() -> None:
+    from reports.publisher import ReportPublisher
+
+    registry = publishable_registry()
+    runner = _runner(registry, publisher=ReportPublisher(registry))
+    runtime.set_runner(runner)
     try:
-        with pytest.raises(NotImplementedError):
-            tasks.publish_report.apply(args=["x", "y"]).get()
+        job = runner.submit(
+            "acct-1", IntakeRequest(kind=IntakeKind.ADDRESS, address="123 Main St")
+        )
+        result = tasks.publish_report.apply(args=[job.id, "acct-1"]).get()
+        assert result["state"] == JobState.PUBLISHED
+        assert result["report"]["manifest"]["imagery"] == "denied"
     finally:
         runtime.set_runner(None)

@@ -16,6 +16,7 @@ dependencies = [
     "httpx",
     "celery",
     "python-multipart",
+    "jinja2",
 ]
 
 [project.optional-dependencies]
@@ -28,7 +29,7 @@ dev = [
 
 [tool.setuptools]
 package-dir = {"" = "src"}
-package-data = {analysis = ["profiles/*.yaml"]}
+package-data = {analysis = ["profiles/*.yaml"], reports = ["templates/*.j2"]}
 packages = [
     "api",
     "connectors",

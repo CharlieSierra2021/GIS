@@ -52,4 +52,5 @@ def quality_gates(job_id: str, account_id: str):
 
 @celery_app.task(name="publish_report")
 def publish_report(job_id: str, account_id: str):
-    raise NotImplementedError("M9")
+    job = _runner().publish(job_id, account_id)
+    return job.model_dump(mode="json")

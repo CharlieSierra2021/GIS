@@ -86,6 +86,7 @@ class Job(BaseModel):
     routing: dict | None = None
     screening: ScreeningResult | None = None
     gates: GateDecision | None = None
+    report: dict | None = None
     error: str | None = None
     created_at: datetime
     updated_at: datetime

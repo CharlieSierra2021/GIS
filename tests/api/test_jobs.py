@@ -5,6 +5,7 @@ from shapely.geometry import box
 from analysis.profile import load_profile
 from api.main import create_app
 from jurisdiction import AuthorityBoundary, JurisdictionRouter
+from reports.publisher import ReportPublisher
 from resolution.resolver import ParcelResolver
 from tests.support.parcels import build_source
 from tests.support.stubs import (
@@ -35,6 +36,7 @@ def client() -> TestClient:
         registry=registry,
         profile=load_profile(),
         clock=lambda: NOW,
+        publisher=ReportPublisher(registry, clock=lambda: NOW),
     )
     return TestClient(create_app(runner))
 
@@ -86,6 +88,28 @@ def test_review_on_non_review_state_409(client: TestClient) -> None:
         headers=H,
     )
     assert review.status_code == 409
+
+
+def test_publish_and_fetch_report(client: TestClient) -> None:
+    resp = client.post(
+        "/jobs", json={"kind": "parcel_id", "parcel_id": "P-001"}, headers=H
+    )
+    job_id = resp.json()["id"]
+
+    assert client.get(f"/jobs/{job_id}/report", headers=H).status_code == 404
+
+    pub = client.post(f"/jobs/{job_id}/publish", headers=H)
+    assert pub.status_code == 200
+    assert pub.json()["state"] == "published"
+
+    report = client.get(f"/jobs/{job_id}/report", headers=H)
+    assert report.status_code == 200
+    assert report.headers["content-type"].startswith("text/html")
+    assert "Aerial imagery not licensed for display." in report.text
+
+    manifest = client.get(f"/jobs/{job_id}/manifest", headers=H)
+    assert manifest.status_code == 200
+    assert manifest.json()["disposition"] == "auto_publish"
 
 
 def test_portfolio_row_isolation(client: TestClient) -> None:

@@ -7,6 +7,7 @@ import io
 from typing import Annotated
 
 from fastapi import APIRouter, Header, HTTPException, UploadFile
+from fastapi.responses import HTMLResponse
 
 from api.schemas import CandidateSelect, JobCreate, ReviewDecision, job_out
 from workers.jobs import IllegalTransition, JobStore
@@ -81,6 +82,47 @@ def build_router(runner: JobRunner, store: JobStore) -> APIRouter:
             raise HTTPException(404, "job not found") from None
         except (IllegalTransition, ValueError) as exc:
             raise HTTPException(409, str(exc)) from exc
+
+    @router.post("/jobs/{job_id}/publish")
+    def publish_job(
+        job_id: str,
+        x_account_id: Annotated[str | None, Header()] = None,
+    ):
+        account = _account(x_account_id)
+        try:
+            return job_out(runner.publish(job_id, account))
+        except KeyError:
+            raise HTTPException(404, "job not found") from None
+        except (IllegalTransition, ValueError) as exc:
+            raise HTTPException(409, str(exc)) from exc
+
+    @router.get("/jobs/{job_id}/report")
+    def get_report(
+        job_id: str,
+        x_account_id: Annotated[str | None, Header()] = None,
+    ):
+        account = _account(x_account_id)
+        try:
+            job = store.get(job_id, account)
+        except KeyError:
+            raise HTTPException(404, "job not found") from None
+        if not job.report:
+            raise HTTPException(404, "report not published")
+        return HTMLResponse(job.report["html"])
+
+    @router.get("/jobs/{job_id}/manifest")
+    def get_manifest(
+        job_id: str,
+        x_account_id: Annotated[str | None, Header()] = None,
+    ):
+        account = _account(x_account_id)
+        try:
+            job = store.get(job_id, account)
+        except KeyError:
+            raise HTTPException(404, "job not found") from None
+        if not job.report:
+            raise HTTPException(404, "report not published")
+        return job.report["manifest"]
 
     @router.post("/portfolios", status_code=201)
     async def create_portfolio(

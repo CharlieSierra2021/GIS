@@ -22,7 +22,7 @@ from workers.pipeline import JobRunner
 NOW = datetime(2025, 6, 1, tzinfo=UTC)
 
 
-def _runner(registry, pages=None, router="toy") -> JobRunner:
+def _runner(registry, pages=None, router="toy", **runner_kw) -> JobRunner:
     if router == "toy":
         router_obj = JurisdictionRouter(
             registry=registry,
@@ -39,6 +39,7 @@ def _runner(registry, pages=None, router="toy") -> JobRunner:
         registry=registry,
         profile=load_profile(),
         clock=lambda: NOW,
+        **runner_kw,
     )
 
 
@@ -133,6 +134,57 @@ def test_review_publish_path() -> None:
     job = runner.review(job.id, "acct-1", "rev-1", "publish", "looks fine")
     assert job.state == JobState.AUTO_PUBLISH
     assert job.gates.review["reviewer"] == "rev-1"
+
+
+def test_auto_publish_on_pass_publishes() -> None:
+    from reports.publisher import ReportPublisher
+
+    registry = publishable_registry()
+    runner = _runner(
+        registry,
+        publisher=ReportPublisher(registry, clock=lambda: NOW),
+        auto_publish_on_pass=True,
+    )
+    job = runner.submit(
+        "acct-1", IntakeRequest(kind=IntakeKind.ADDRESS, address="123 Main St")
+    )
+    assert job.state == JobState.PUBLISHED
+    assert job.report is not None
+    assert job.report["manifest"]["imagery"] == "denied"
+    assert JobState.PUBLISHED in _states(job)
+
+
+def test_publish_from_qualified_output() -> None:
+    from reports.publisher import ReportPublisher
+    from tests.support.stubs import page
+
+    registry = publishable_registry()
+    pages = full_pages()
+    pages["nwi_wetlands"] = page()  # NOT_FOUND -> QUALIFIED_OUTPUT
+    runner = _runner(registry, pages=pages, publisher=ReportPublisher(registry))
+    job = runner.submit(
+        "acct-1", IntakeRequest(kind=IntakeKind.ADDRESS, address="123 Main St")
+    )
+    assert job.state == JobState.QUALIFIED_OUTPUT
+    job = runner.publish(job.id, "acct-1")
+    assert job.state == JobState.PUBLISHED
+
+
+def test_publish_from_human_review_is_illegal() -> None:
+    from reports.publisher import ReportPublisher
+
+    registry = publishable_registry()
+    pages = full_pages()
+    pages["nfhl_flood"] = ConnectorError(
+        FailureClass.SOURCE_UNAVAILABLE, detail="down"
+    )
+    runner = _runner(registry, pages=pages, publisher=ReportPublisher(registry))
+    job = runner.submit(
+        "acct-1", IntakeRequest(kind=IntakeKind.ADDRESS, address="123 Main St")
+    )
+    assert job.state == JobState.HUMAN_REVIEW
+    with pytest.raises(IllegalTransition):
+        runner.publish(job.id, "acct-1")
 
 
 def test_screen_exception_fails_job_not_raises(monkeypatch) -> None:

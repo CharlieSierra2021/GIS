@@ -43,6 +43,8 @@ class JobRunner:
         registry: Registry,
         profile: Profile,
         clock: Callable[[], datetime] = _utcnow,
+        publisher=None,
+        auto_publish_on_pass: bool = False,
     ) -> None:
         self._store = store
         self._resolver = resolver
@@ -51,6 +53,8 @@ class JobRunner:
         self._registry = registry
         self._profile = profile
         self._clock = clock
+        self._publisher = publisher
+        self._auto_publish_on_pass = auto_publish_on_pass
 
     @property
     def store(self) -> JobStore:
@@ -151,6 +155,27 @@ class JobRunner:
         self._store.put(job)
         return job
 
+    def publish(self, job_id: str, account_id: str) -> Job:
+        job = self._store.get(job_id, account_id)
+        if job.state not in (JobState.AUTO_PUBLISH, JobState.QUALIFIED_OUTPUT):
+            raise IllegalTransition(
+                f"publish requires state {JobState.AUTO_PUBLISH} or "
+                f"{JobState.QUALIFIED_OUTPUT}, got {job.state}"
+            )
+        self._do_publish(job)
+        self._store.put(job)
+        return job
+
+    def _do_publish(self, job: Job) -> None:
+        if self._publisher is None:
+            raise ValueError("no report publisher configured")
+        published = self._publisher.publish(job)
+        job.report = {
+            "manifest": published.manifest.model_dump(mode="json"),
+            "html": published.html,
+        }
+        job.advance(JobState.PUBLISHED, note="report rendered + manifest")
+
     # -- internals ----------------------------------------------------------
 
     def _continue(self, job: Job) -> None:
@@ -184,6 +209,12 @@ class JobRunner:
             )
         )
         job.advance(_DISPOSITION_STATE[job.gates.disposition])
+        if (
+            self._auto_publish_on_pass
+            and self._publisher is not None
+            and job.gates.disposition == Disposition.AUTO_PUBLISH
+        ):
+            self._do_publish(job)
 
     def _route(self, job: Job) -> dict:
         wkt = self._parcel_wkt(job)
