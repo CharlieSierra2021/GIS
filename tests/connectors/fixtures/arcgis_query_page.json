@@ -1,0 +1,39 @@
+{
+  "objectIdFieldName": "OBJECTID",
+  "spatialReference": { "wkid": 4326 },
+  "fields": [
+    { "name": "OBJECTID", "type": "esriFieldTypeOID" },
+    { "name": "PARID", "type": "esriFieldTypeString" },
+    { "name": "SITUS", "type": "esriFieldTypeString" }
+  ],
+  "features": [
+    {
+      "attributes": { "OBJECTID": 101, "PARID": "P-001", "SITUS": "123 MAIN ST" },
+      "geometry": {
+        "rings": [
+          [
+            [-81.05, 29.20],
+            [-81.04, 29.20],
+            [-81.04, 29.21],
+            [-81.05, 29.21],
+            [-81.05, 29.20]
+          ]
+        ]
+      }
+    },
+    {
+      "attributes": { "OBJECTID": 102, "PARID": "P-002", "SITUS": "456 OAK AVE" },
+      "geometry": {
+        "rings": [
+          [
+            [-81.03, 29.20],
+            [-81.02, 29.20],
+            [-81.02, 29.21],
+            [-81.03, 29.21],
+            [-81.03, 29.20]
+          ]
+        ]
+      }
+    }
+  ]
+}

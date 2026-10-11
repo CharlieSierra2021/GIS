@@ -1,0 +1,23 @@
+{
+  "id": 0,
+  "name": "Parcels",
+  "objectIdField": "OBJECTID",
+  "maxRecordCount": 1000,
+  "advancedQueryCapabilities": {
+    "supportsPagination": true,
+    "supportsOrderBy": true
+  },
+  "extent": {
+    "xmin": 432100.0,
+    "ymin": 1700000.0,
+    "xmax": 589000.0,
+    "ymax": 1850000.0,
+    "spatialReference": { "wkid": 2881, "latestWkid": 2881 }
+  },
+  "fields": [
+    { "name": "OBJECTID", "type": "esriFieldTypeOID", "alias": "OBJECTID", "nullable": false },
+    { "name": "PARID", "type": "esriFieldTypeString", "alias": "Parcel ID", "length": 25, "nullable": false },
+    { "name": "SITUS", "type": "esriFieldTypeString", "alias": "Situs Address", "length": 80, "nullable": true },
+    { "name": "OWNER", "type": "esriFieldTypeString", "alias": "Owner", "length": 120, "nullable": true }
+  ]
+}

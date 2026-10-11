@@ -13,13 +13,13 @@ dependencies = [
     "pydantic>=2",
     "pyyaml",
     "shapely>=2.0",
+    "httpx",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest",
     "pytest-cov",
-    "httpx",
     "yamllint",
     "ruff",
 ]
