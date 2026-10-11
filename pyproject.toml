@@ -17,6 +17,8 @@ dependencies = [
     "celery",
     "python-multipart",
     "jinja2",
+    "sqlalchemy>=2",
+    "alembic",
 ]
 
 [project.optional-dependencies]

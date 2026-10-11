@@ -122,30 +122,35 @@ def screen(ctx: ScreeningContext, profile: Profile, fetcher: EvidenceFetcher) ->
             )
             continue
 
-        if not page.features:
+        def _no_record(fid=fid, area=area, ds_id=ds_id, dataset=dataset, spec=spec) -> Finding:
             vintage = dataset.vintage
-            findings.append(
-                not_found(
-                    fid,
-                    area,
-                    dataset_id=ds_id,
-                    provider_id=dataset.provider,
-                    registry_version=ctx.registry.registry_version,
-                    retrieved_at=ctx.now,
-                    mandatory=spec.mandatory,
-                    observation_date=vintage.observation if vintage else None,
-                    publication_date=vintage.publication if vintage else None,
-                    license_name=dataset.license.name,
-                    license_gate=dataset.license.gate,
-                )
+            return not_found(
+                fid,
+                area,
+                dataset_id=ds_id,
+                provider_id=dataset.provider,
+                registry_version=ctx.registry.registry_version,
+                retrieved_at=ctx.now,
+                mandatory=spec.mandatory,
+                observation_date=vintage.observation if vintage else None,
+                publication_date=vintage.publication if vintage else None,
+                license_name=dataset.license.name,
+                license_gate=dataset.license.gate,
             )
+
+        if not page.features:
+            findings.append(_no_record())
             continue
 
         analyzer = ANALYZERS[spec.analyzer]
         effective_spec = spec.model_copy(update={"dataset": ds_id})
-        statement, evidence, disclosure = analyzer(
-            area, effective_spec, page.features, ctx
-        )
+        analysed = analyzer(area, effective_spec, page.features, ctx)
+        if analysed is None:
+            # Analyzer found no qualifying evidence (e.g. all proximity hits
+            # outside the buffer) — same outcome as an empty page.
+            findings.append(_no_record())
+            continue
+        statement, evidence, disclosure = analysed
         if ds_id != spec.dataset:
             evidence["dataset_id"] = ds_id
         prov = page.features[0].provenance

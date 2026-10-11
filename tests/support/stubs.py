@@ -70,7 +70,7 @@ def full_pages() -> dict:
             feat("k1", {}, "POINT (-80.98 29.005)")  # ~1 km east of parcel
         ),
         "permits": page(feat("p1", {"PERMIT_NO": "B-2024-001"})),
-        "fdep_contam": page(feat("c1", {}, "POINT (-80.985 29.005)")),
+        "fdep_contam": page(feat("c1", {}, "POINT (-80.988 29.005)")),  # ~190 m out
         "county_flu": page(feat("f1", {"FLU": "RES"})),
         "mun_flu": page(feat("f2", {"FLU": "MUN-RES"})),
         "fdot_roads": page(
@@ -78,6 +78,28 @@ def full_pages() -> dict:
         ),
         "utility_service": page(feat("u1", {})),
     }
+
+
+# Toy-geometry parcel used by pipeline/api tests (tests/support/parcels.py
+# P-001 = box(0,0,10,10)). Proximity analyzers drop out-of-buffer features,
+# so evidence must sit next to the parcel it will be screened against.
+TOY_PARCEL_WKT = box(0, 0, 10, 10).wkt
+
+
+def _toy(key: str, attrs: dict, wkt: str) -> Feature:
+    return feat(key, attrs, wkt)
+
+
+def toy_pages() -> dict:
+    """Like full_pages() but with evidence near the toy P-001 parcel."""
+    pages = full_pages()
+    pages["sinkhole_reports"] = page(_toy("k1", {}, "POINT (10.01 5)"))  # ~1 km out
+    pages["fdep_contam"] = page(_toy("c1", {}, "POINT (10.001 5)"))  # ~90 m out
+    pages["fdot_roads"] = page(
+        _toy("r1", {}, "LINESTRING (0 5, 10 5)")  # crosses the parcel
+    )
+    pages["utility_service"] = page(_toy("u1", {}, "POINT (5 5)"))
+    return pages
 
 
 def granted_registry():

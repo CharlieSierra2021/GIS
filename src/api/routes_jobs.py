@@ -12,9 +12,12 @@ from fastapi.responses import HTMLResponse
 from api.schemas import CandidateSelect, JobCreate, ReviewDecision, job_out
 from workers.jobs import IllegalTransition, JobStore
 from workers.pipeline import JobRunner
+from workers.reconstruct import reconstruct_evidence_set
 
 
-def build_router(runner: JobRunner, store: JobStore) -> APIRouter:
+def build_router(
+    runner: JobRunner, store: JobStore, audit=None, evidence_store=None
+) -> APIRouter:
     router = APIRouter()
 
     def _account(x_account_id: Annotated[str | None, Header()]) -> str:
@@ -123,6 +126,33 @@ def build_router(runner: JobRunner, store: JobStore) -> APIRouter:
         if not job.report:
             raise HTTPException(404, "report not published")
         return job.report["manifest"]
+
+    @router.get("/jobs/{job_id}/audit")
+    def get_audit(
+        job_id: str,
+        x_account_id: Annotated[str | None, Header()] = None,
+    ):
+        account = _account(x_account_id)
+        try:
+            store.get(job_id, account)
+        except KeyError:
+            raise HTTPException(404, "job not found") from None
+        events = audit.events(job_id, account) if audit else []
+        return [e.model_dump(mode="json") for e in events]
+
+    @router.get("/jobs/{job_id}/evidence")
+    def get_evidence(
+        job_id: str,
+        x_account_id: Annotated[str | None, Header()] = None,
+    ):
+        account = _account(x_account_id)
+        try:
+            store.get(job_id, account)
+        except KeyError:
+            raise HTTPException(404, "job not found") from None
+        return reconstruct_evidence_set(
+            job_id, account, audit, evidence_store
+        ).model_dump(mode="json")
 
     @router.post("/portfolios", status_code=201)
     async def create_portfolio(

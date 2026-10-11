@@ -11,9 +11,9 @@ from resolution.resolver import ParcelResolver
 from tests.support.parcels import build_source
 from tests.support.stubs import (
     StubFetcher,
-    full_pages,
     granted_registry,
     publishable_registry,
+    toy_pages,
 )
 from workers import pipeline
 from workers.jobs import IllegalTransition, InMemoryJobStore, JobState
@@ -35,7 +35,7 @@ def _runner(registry, pages=None, router="toy", **runner_kw) -> JobRunner:
         store=InMemoryJobStore(),
         resolver=ParcelResolver(build_source()),
         router=router_obj,
-        fetcher=StubFetcher(pages if pages is not None else full_pages()),
+        fetcher=StubFetcher(pages if pages is not None else toy_pages()),
         registry=registry,
         profile=load_profile(),
         clock=lambda: NOW,
@@ -101,7 +101,7 @@ def test_no_router_degrades_jurisdiction() -> None:
 
 
 def test_fetch_failure_mandatory_goes_to_review() -> None:
-    pages = full_pages()
+    pages = toy_pages()
     pages["nfhl_flood"] = ConnectorError(
         FailureClass.SOURCE_UNAVAILABLE, detail="down"
     )
@@ -122,7 +122,7 @@ def test_null_report_right_blocks() -> None:
 
 
 def test_review_publish_path() -> None:
-    pages = full_pages()
+    pages = toy_pages()
     pages["nfhl_flood"] = ConnectorError(
         FailureClass.SOURCE_UNAVAILABLE, detail="down"
     )
@@ -159,7 +159,7 @@ def test_publish_from_qualified_output() -> None:
     from tests.support.stubs import page
 
     registry = publishable_registry()
-    pages = full_pages()
+    pages = toy_pages()
     pages["nwi_wetlands"] = page()  # NOT_FOUND -> QUALIFIED_OUTPUT
     runner = _runner(registry, pages=pages, publisher=ReportPublisher(registry))
     job = runner.submit(
@@ -174,7 +174,7 @@ def test_publish_from_human_review_is_illegal() -> None:
     from reports.publisher import ReportPublisher
 
     registry = publishable_registry()
-    pages = full_pages()
+    pages = toy_pages()
     pages["nfhl_flood"] = ConnectorError(
         FailureClass.SOURCE_UNAVAILABLE, detail="down"
     )

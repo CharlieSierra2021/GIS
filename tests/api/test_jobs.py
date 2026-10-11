@@ -11,11 +11,13 @@ from tests.support.parcels import build_source
 from tests.support.stubs import (
     NOW,
     StubFetcher,
-    full_pages,
     publishable_registry,
+    toy_pages,
 )
+from workers.audit import InMemoryAuditLog
 from workers.jobs import InMemoryJobStore
 from workers.pipeline import JobRunner
+from workers.storage import InMemoryEvidenceStore
 
 H = {"X-Account-Id": "acct-1"}
 
@@ -32,11 +34,13 @@ def client() -> TestClient:
         store=InMemoryJobStore(),
         resolver=ParcelResolver(build_source()),
         router=router,
-        fetcher=StubFetcher(full_pages()),
+        fetcher=StubFetcher(toy_pages()),
         registry=registry,
         profile=load_profile(),
         clock=lambda: NOW,
         publisher=ReportPublisher(registry, clock=lambda: NOW),
+        audit=InMemoryAuditLog(),
+        evidence_store=InMemoryEvidenceStore(),
     )
     return TestClient(create_app(runner))
 
@@ -110,6 +114,23 @@ def test_publish_and_fetch_report(client: TestClient) -> None:
     manifest = client.get(f"/jobs/{job_id}/manifest", headers=H)
     assert manifest.status_code == 200
     assert manifest.json()["disposition"] == "auto_publish"
+
+
+def test_audit_and_evidence_endpoints(client: TestClient) -> None:
+    resp = client.post(
+        "/jobs", json={"kind": "parcel_id", "parcel_id": "P-001"}, headers=H
+    )
+    job_id = resp.json()["id"]
+
+    audit = client.get(f"/jobs/{job_id}/audit", headers=H)
+    assert audit.status_code == 200
+    events = audit.json()
+    assert events[0]["type"] == "job_created"
+    assert len(events) > 1
+
+    evidence = client.get(f"/jobs/{job_id}/evidence", headers=H)
+    assert evidence.status_code == 200
+    assert "complete" in evidence.json()
 
 
 def test_portfolio_row_isolation(client: TestClient) -> None:

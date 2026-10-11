@@ -94,6 +94,10 @@ def proximity(area, spec, features, ctx):
         if spec.buffer_m is not None
         else len(features)
     )
+    if within == 0:
+        # No qualifying evidence inside the buffer — the engine renders this
+        # as NOT_FOUND ("no record"), never PRESENT.
+        return None
     label = spec.label or "feature"
     nearest_txt = f"{nearest:.0f}" if nearest is not None else "unknown"
     statement = (

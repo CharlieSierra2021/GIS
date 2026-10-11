@@ -15,7 +15,9 @@ def create_app(runner: JobRunner | None = None) -> FastAPI:
     if runner is None:
         runner = runtime.get_runner() or runtime.build_default_runner()
 
-    app.include_router(build_router(runner, runner.store))
+    app.include_router(
+        build_router(runner, runner.store, runner.audit, runner.evidence_store)
+    )
 
     @app.get("/health")
     def health() -> dict:

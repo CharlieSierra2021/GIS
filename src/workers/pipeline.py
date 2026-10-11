@@ -13,6 +13,7 @@ from jurisdiction.router import JurisdictionRouter, RoutingStatus
 from quality.gates import Disposition, GateInputs, apply_review, evaluate
 from resolution.models import ResolutionStatus
 from resolution.resolver import ParcelResolver
+from workers.audit import AuditEvent, AuditEventType, AuditLog
 from workers.jobs import (
     IllegalTransition,
     Job,
@@ -45,6 +46,8 @@ class JobRunner:
         clock: Callable[[], datetime] = _utcnow,
         publisher=None,
         auto_publish_on_pass: bool = False,
+        audit: AuditLog | None = None,
+        evidence_store=None,
     ) -> None:
         self._store = store
         self._resolver = resolver
@@ -55,10 +58,20 @@ class JobRunner:
         self._clock = clock
         self._publisher = publisher
         self._auto_publish_on_pass = auto_publish_on_pass
+        self._audit = audit
+        self._evidence_store = evidence_store
 
     @property
     def store(self) -> JobStore:
         return self._store
+
+    @property
+    def audit(self):
+        return self._audit
+
+    @property
+    def evidence_store(self):
+        return self._evidence_store
 
     # -- public API ---------------------------------------------------------
 
@@ -75,6 +88,9 @@ class JobRunner:
             profile_version=self._profile.version,
         )
         self._store.put(job)
+        self._emit(
+            job, AuditEventType.JOB_CREATED, {"intake": intake.model_dump(mode="json")}
+        )
         return self.run(job.id, account_id)
 
     def run(self, job_id: str, account_id: str) -> Job:
@@ -82,11 +98,17 @@ class JobRunner:
         if job.state == JobState.AWAITING_CUSTOMER_INPUT:
             return job
         try:
-            job.advance(JobState.RESOLVING)
+            self._advance(job, JobState.RESOLVING)
             decision = self._resolver.resolve(job.intake)
             job.resolution = decision
+            self._emit(
+                job,
+                AuditEventType.RESOLUTION,
+                {"decision": decision.model_dump(mode="json")},
+            )
             if decision.status == ResolutionStatus.AWAITING_CUSTOMER_INPUT:
-                job.advance(
+                self._advance(
+                    job,
                     JobState.AWAITING_CUSTOMER_INPUT,
                     note=decision.disclosure,
                 )
@@ -100,9 +122,10 @@ class JobRunner:
             if job.state != JobState.FAILED:
                 job.error = str(exc)
                 try:
-                    job.advance(JobState.FAILED, note=str(exc))
+                    self._advance(job, JobState.FAILED, note=str(exc))
                 except IllegalTransition:
                     job.state = JobState.FAILED
+                self._emit(job, AuditEventType.ERROR, {"error": str(exc)})
         finally:
             self._store.put(job)
         return job
@@ -118,8 +141,16 @@ class JobRunner:
             )
         try:
             job.resolution = self._resolver.confirm(job.resolution, parcel_id)
-            job.advance(
-                JobState.RESOLVING, note=f"customer selected {parcel_id}"
+            self._emit(
+                job,
+                AuditEventType.RESOLUTION,
+                {
+                    "decision": job.resolution.model_dump(mode="json"),
+                    "customer_selection": parcel_id,
+                },
+            )
+            self._advance(
+                job, JobState.RESOLVING, note=f"customer selected {parcel_id}"
             )
             self._continue(job)
         except (IllegalTransition, ValueError):
@@ -127,9 +158,10 @@ class JobRunner:
         except Exception as exc:  # noqa: BLE001 - job must fail, not crash
             job.error = str(exc)
             try:
-                job.advance(JobState.FAILED, note=str(exc))
+                self._advance(job, JobState.FAILED, note=str(exc))
             except IllegalTransition:
                 job.state = JobState.FAILED
+            self._emit(job, AuditEventType.ERROR, {"error": str(exc)})
         finally:
             self._store.put(job)
         return job
@@ -148,7 +180,13 @@ class JobRunner:
                 f"review requires state {JobState.HUMAN_REVIEW}, got {job.state}"
             )
         job.gates = apply_review(job.gates, reviewer, approve, rationale)
-        job.advance(
+        self._emit(
+            job,
+            AuditEventType.REVIEW,
+            {"reviewer": reviewer, "approve": approve, "rationale": rationale},
+        )
+        self._advance(
+            job,
             _DISPOSITION_STATE[job.gates.disposition],
             note=f"reviewer {reviewer}: {approve} — {rationale}",
         )
@@ -174,17 +212,48 @@ class JobRunner:
             "manifest": published.manifest.model_dump(mode="json"),
             "html": published.html,
         }
-        job.advance(JobState.PUBLISHED, note="report rendered + manifest")
+        self._emit(
+            job,
+            AuditEventType.PUBLISHED,
+            {"manifest": published.manifest.model_dump(mode="json")},
+        )
+        self._advance(job, JobState.PUBLISHED, note="report rendered + manifest")
 
     # -- internals ----------------------------------------------------------
 
+    def _advance(self, job: Job, to: JobState, note: str | None = None) -> None:
+        job.advance(to, note=note)
+        t = job.transitions[-1]
+        self._emit(
+            job,
+            AuditEventType.TRANSITION,
+            {"from": str(t.from_state), "to": str(t.to_state), "note": note},
+        )
+
+    def _emit(self, job: Job, type: AuditEventType, payload: dict) -> None:
+        if self._audit is None:
+            return
+        self._audit.append(
+            AuditEvent(
+                job_id=job.id,
+                account_id=job.account_id,
+                at=self._clock(),
+                type=type,
+                payload=payload,
+                registry_version=job.registry_version,
+                profile=job.profile,
+                profile_version=job.profile_version,
+            )
+        )
+
     def _continue(self, job: Job) -> None:
-        job.advance(JobState.ROUTING_JURISDICTION)
+        self._advance(job, JobState.ROUTING_JURISDICTION)
         routing = self._route(job)
         job.routing = routing
+        self._emit(job, AuditEventType.ROUTING, {"routing": routing})
 
-        job.advance(JobState.FETCHING)
-        job.advance(JobState.SCREENING)
+        self._advance(job, JobState.FETCHING)
+        self._advance(job, JobState.SCREENING)
         authority_id = (
             routing["authority_id"] if routing["status"] == "resolved" else None
         )
@@ -196,9 +265,19 @@ class JobRunner:
             authority_id=authority_id,
             now=self._clock(),
         )
-        job.screening = screen(ctx, self._profile, self._fetcher)
+        fetcher = self._fetcher
+        if self._evidence_store is not None:
+            fetcher = RecordingFetcher(
+                self._fetcher, self._evidence_store, self._registry, job.id
+            )
+        job.screening = screen(ctx, self._profile, fetcher)
+        self._emit(
+            job,
+            AuditEventType.SCREENING,
+            {"screening": job.screening.model_dump(mode="json")},
+        )
 
-        job.advance(JobState.QUALITY_GATES)
+        self._advance(job, JobState.QUALITY_GATES)
         job.gates = evaluate(
             GateInputs(
                 resolution=job.resolution,
@@ -208,7 +287,18 @@ class JobRunner:
                 conflicts=[],
             )
         )
-        job.advance(_DISPOSITION_STATE[job.gates.disposition])
+        for gate in job.gates.gates:
+            self._emit(
+                job,
+                AuditEventType.GATE_RESULT,
+                {"gate": gate.model_dump(mode="json")},
+            )
+        self._emit(
+            job,
+            AuditEventType.GATE_DECISION,
+            {"decision": job.gates.model_dump(mode="json")},
+        )
+        self._advance(job, _DISPOSITION_STATE[job.gates.disposition])
         if (
             self._auto_publish_on_pass
             and self._publisher is not None
@@ -255,3 +345,31 @@ class JobRunner:
             if cand.parcel_id == job.resolution.parcel_id:
                 return cand.geometry_wkt
         return None
+
+
+class RecordingFetcher:
+    """Wraps an EvidenceFetcher and stores each returned FeaturePage in the
+    evidence store (subject to the dataset's cache right) before returning it."""
+
+    def __init__(self, inner, evidence_store, registry, job_id: str) -> None:
+        self._inner = inner
+        self._store = evidence_store
+        self._registry = registry
+        self._job_id = job_id
+
+    def fetch(
+        self, dataset_id, parcel_wkt, spatial_rel, buffer_m, authority_id=None
+    ):
+        page = self._inner.fetch(
+            dataset_id, parcel_wkt, spatial_rel, buffer_m, authority_id
+        )
+        dataset = self._registry.dataset(dataset_id)
+        allowed = dataset.permissions.allows("cache")
+        retrieved = (
+            page.features[0].provenance.retrieved_at if page.features else None
+        )
+        self._store.put(
+            self._job_id, dataset_id, authority_id, page,
+            allowed=allowed, retrieved_at=retrieved,
+        )
+        return page

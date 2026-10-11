@@ -3,7 +3,14 @@ from analysis.findings import FindingStatus, check_boundary_language
 from analysis.profile import load_profile
 from connectors.contract import ConnectorError, FailureClass
 from connectors.registry import load_registry
-from tests.analysis.conftest import NOW, PARCEL_WKT, StubFetcher, full_pages, page
+from tests.analysis.conftest import (
+    NOW,
+    PARCEL_WKT,
+    StubFetcher,
+    feat,
+    full_pages,
+    page,
+)
 
 
 def _ctx(registry, authority_id="volusia_uninc", job_id="job-1"):
@@ -118,6 +125,18 @@ def test_mun_flu_failure_discloses_authority(granted_registry) -> None:
     land_use = _by_area(result, "land_use")
     assert land_use.status == FindingStatus.NOT_ASSESSED
     assert "municipal FLU unavailable — authority: City of DeLand" in land_use.disclosure
+
+
+def test_proximity_beyond_buffer_is_not_found(granted_registry) -> None:
+    pages = full_pages()
+    # ~50 km away — far outside the 1609 m subsidence buffer.
+    pages["sinkhole_reports"] = page(
+        feat("k1", {}, "POINT (-80.5 29.5)")
+    )
+    result = screen(_ctx(granted_registry), load_profile(), StubFetcher(pages))
+    subs = _by_area(result, "subsidence")
+    assert subs.status == FindingStatus.NOT_FOUND
+    assert "not evidence of absence" in subs.statement
 
 
 def test_proximity_nearest_distance(granted_registry) -> None:

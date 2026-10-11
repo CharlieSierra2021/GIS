@@ -9,7 +9,7 @@ from jurisdiction import AuthorityBoundary, JurisdictionRouter
 from reports.publisher import ReportPublisher
 from resolution.resolver import ParcelResolver
 from tests.support.parcels import build_source
-from tests.support.stubs import NOW, StubFetcher, full_pages, publishable_registry
+from tests.support.stubs import NOW, StubFetcher, publishable_registry, toy_pages
 from workers.jobs import InMemoryJobStore
 from workers.pipeline import JobRunner
 
@@ -27,7 +27,7 @@ def _runner(registry=None):
         store=InMemoryJobStore(),
         resolver=ParcelResolver(build_source()),
         router=router,
-        fetcher=StubFetcher(full_pages()),
+        fetcher=StubFetcher(toy_pages()),
         registry=registry,
         profile=load_profile(),
         clock=lambda: NOW,

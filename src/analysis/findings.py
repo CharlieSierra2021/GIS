@@ -99,7 +99,7 @@ _AREA_RECORD_LABEL = {
     "hydric_soils": "hydric soil",
     "subsidence": "subsidence",
     "permits": "permit",
-    "contamination": "contamination",
+    "contamination": "cleanup site",
     "land_use": "land use",
     "access": "access",
     "utilities": "utility",
